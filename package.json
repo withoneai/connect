@@ -1,7 +1,7 @@
 {
   "name": "@withone/connect",
   "version": "0.1.0",
-  "description": "Frontend bindings for One Connect. Lets your users grant your application scoped, revocable access to their own One-connected tools (Gmail, Slack, Notion and 500+ more) through the standard OAuth 2.1 authorization-code flow. The user owns the connections; you hold a token scoped to exactly what they granted.",
+  "description": "Frontend bindings for One Connect, a drop-in OAuth flow that lets your users grant your application scoped, revocable access to their own connected tools. The user owns the connections; you hold a token scoped to exactly what they granted.",
   "files": [
     "dist",
     "src",
@@ -39,6 +39,7 @@
     "access": "public"
   },
   "scripts": {
+    "prepublishOnly": "npm run build",
     "build": "rollup -c && npm run verify",
     "verify": "node -e \"const fs=require('fs'),p=require('./package.json');const miss=[p.main,p.module,p.types].filter(f=>!fs.existsSync(f));if(miss.length){console.error('Build output missing: '+miss.join(', '));process.exit(1)}console.log('Build verified: '+[p.main,p.module,p.types].join(', '))\"",
     "lint": "eslint src --ext .ts,.tsx",
