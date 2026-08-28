@@ -101,12 +101,30 @@ export function showSuccessOverlay(theme?: "dark" | "light"): void {
   });
 
   const dismiss = () => {
+    window.removeEventListener("keydown", onKeydown);
     overlay.style.opacity = "0";
     window.setTimeout(() => overlay.remove(), 180);
   };
+  function onKeydown(event: KeyboardEvent) {
+    if (event.key === "Escape") dismiss();
+  }
+
   for (const button of card.querySelectorAll("[data-one-close]")) {
     button.addEventListener("click", dismiss);
   }
+  // The card is dismissed deliberately, never on a timer — but this
+  // overlay covers the host page at the top of the stacking context, so
+  // it must never be able to strand the app. Clicking the scrim outside
+  // the card and pressing Escape are both floors under the buttons: if a
+  // button ever fails to render or bind, the user is still not trapped.
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) dismiss();
+  });
+  window.addEventListener("keydown", onKeydown);
+
+  // Send focus somewhere sane for keyboard and screen-reader users, who
+  // otherwise land on a full-viewport overlay with no reachable control.
+  (card.querySelector("[data-one-close]") as HTMLElement | null)?.focus();
 }
 
 export function removeSuccessOverlay(): void {
