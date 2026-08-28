@@ -42,12 +42,12 @@ export function removeEmbedIframe(): void {
 
 export const SUCCESS_ID = "one-connect-success";
 
-/** The brief "Access granted" confirmation shown after the grant
- *  completes — the same beat authkit's "Connection established" screen
- *  provides. By this point the card's iframe has already navigated home
- *  and been removed, so the SDK paints this itself: scrim + a small
- *  authkit-styled card, auto-dismissing (or on click). Pure inline
- *  styles — the SDK ships no CSS and loads no assets. */
+/** The "Access granted" confirmation shown after the grant completes —
+ *  the same beat as authkit's "Connection established" screen, and
+ *  dismissed the same way: the user closes it with the ✕ or the Close
+ *  button, never a timer. By this point the card's iframe has already
+ *  navigated home and been removed, so the SDK paints this itself.
+ *  Pure inline styles — the SDK ships no CSS and loads no assets. */
 export function showSuccessOverlay(theme?: "dark" | "light"): void {
   removeSuccessOverlay();
   const dark = theme === "dark";
@@ -81,12 +81,18 @@ export function showSuccessOverlay(theme?: "dark" | "light"): void {
     fontFamily:
       "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
   } as Partial<CSSStyleDeclaration>);
+  const muted = dark ? "#a1a1aa" : "#6b7280";
+  card.style.position = "relative";
   card.innerHTML =
+    `<button data-one-close aria-label="Close" style="position:absolute;top:16px;right:16px;width:20px;height:20px;padding:0;border:0;background:none;cursor:pointer;color:${muted};line-height:0;">` +
+    '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>' +
+    "</button>" +
     '<div style="width:56px;height:56px;border-radius:50%;background:#10b981;display:flex;align-items:center;justify-content:center;">' +
     '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>' +
     "</div>" +
     `<div style="font-size:17px;font-weight:600;letter-spacing:-0.01em;color:${dark ? "#fafafa" : "#111114"};">Access granted</div>` +
-    `<div style="font-size:13px;line-height:1.5;max-width:240px;color:${dark ? "#a1a1aa" : "#6b7280"};">Your tools are connected. You can pick up right where you left off.</div>`;
+    `<div style="font-size:13px;line-height:1.5;max-width:240px;color:${muted};">Your tools are connected. You can pick up right where you left off.</div>` +
+    `<button data-one-close style="width:100%;margin-top:8px;padding:10px 0;border:0;border-radius:12px;cursor:pointer;font-size:14px;font-weight:500;background:${dark ? "#fafafa" : "#111114"};color:${dark ? "#111114" : "#fafafa"};">Close</button>`;
 
   overlay.appendChild(card);
   document.body.appendChild(overlay);
@@ -98,8 +104,9 @@ export function showSuccessOverlay(theme?: "dark" | "light"): void {
     overlay.style.opacity = "0";
     window.setTimeout(() => overlay.remove(), 180);
   };
-  overlay.addEventListener("click", dismiss);
-  window.setTimeout(dismiss, 2400);
+  for (const button of card.querySelectorAll("[data-one-close]")) {
+    button.addEventListener("click", dismiss);
+  }
 }
 
 export function removeSuccessOverlay(): void {
