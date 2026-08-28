@@ -94,7 +94,7 @@ export function showSuccessOverlay(theme?: "dark" | "light"): void {
     "</div>" +
     `<div style="font-size:18px;font-weight:600;letter-spacing:-0.01em;color:${dark ? "#fafafa" : "#111114"};">Access granted</div>` +
     `<div style="font-size:13px;line-height:1.5;max-width:280px;color:${muted};">Your tools are connected. You can pick up right where you left off.</div>` +
-    `<button data-one-close style="width:100%;max-width:320px;margin-top:8px;padding:11px 0;border:0;border-radius:12px;cursor:pointer;font-size:14px;font-weight:500;background:${dark ? "#fafafa" : "#111114"};color:${dark ? "#111114" : "#fafafa"};">Close</button>` +
+    `<button data-one-close style="width:100%;margin-top:8px;padding:11px 0;border:0;border-radius:12px;cursor:pointer;font-size:14px;font-weight:500;background:${dark ? "#fafafa" : "#111114"};color:${dark ? "#111114" : "#fafafa"};">Close</button>` +
     "</div>" +
     `<div style="height:48px;flex-shrink:0;display:flex;align-items:center;justify-content:center;gap:6px;border-radius:0 0 28px 28px;background:${footerBg};border:1px solid ${cardBorder};border-top:0;">` +
     `<span style="font-size:11px;color:${muted};">Secured by</span>` +
