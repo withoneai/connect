@@ -65,34 +65,41 @@ export function showSuccessOverlay(theme?: "dark" | "light"): void {
     transition: "opacity 160ms ease",
   } as Partial<CSSStyleDeclaration>);
 
+  // Same geometry as every other screen in the flow: the authkit card
+  // is 520×520 (body) with a 48px "Secured by" strip under it — the
+  // success screen must not read as a different, smaller surface.
   const card = document.createElement("div");
   Object.assign(card.style, {
-    width: "320px",
-    maxWidth: "calc(100vw - 32px)",
-    padding: "40px 32px",
-    borderRadius: "28px",
-    background: dark ? "rgba(25, 25, 25, 0.97)" : "rgba(255, 255, 255, 0.97)",
-    border: `1px solid ${dark ? "rgba(255,255,255,0.08)" : "rgba(228,228,223,0.9)"}`,
+    width: "520px",
+    maxWidth: "calc(100vw - 16px)",
+    height: "520px",
+    maxHeight: "calc(100vh - 16px)",
     display: "flex",
     flexDirection: "column",
-    alignItems: "center",
-    gap: "16px",
     textAlign: "center",
     fontFamily:
       "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
   } as Partial<CSSStyleDeclaration>);
   const muted = dark ? "#a1a1aa" : "#6b7280";
-  card.style.position = "relative";
+  const cardBg = dark ? "rgba(25, 25, 25, 0.97)" : "rgba(255, 255, 255, 0.97)";
+  const cardBorder = dark ? "rgba(255,255,255,0.08)" : "rgba(228,228,223,0.9)";
+  const footerBg = dark ? "rgba(45, 45, 44, 0.9)" : "rgba(232, 232, 228, 0.95)";
   card.innerHTML =
+    `<div style="position:relative;flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:40px 48px;border-radius:28px 28px 0 0;background:${cardBg};border:1px solid ${cardBorder};border-bottom:0;">` +
     `<button data-one-close aria-label="Close" style="position:absolute;top:16px;right:16px;width:20px;height:20px;padding:0;border:0;background:none;cursor:pointer;color:${muted};line-height:0;">` +
     '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>' +
     "</button>" +
     '<div style="width:56px;height:56px;border-radius:50%;background:#10b981;display:flex;align-items:center;justify-content:center;">' +
     '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>' +
     "</div>" +
-    `<div style="font-size:17px;font-weight:600;letter-spacing:-0.01em;color:${dark ? "#fafafa" : "#111114"};">Access granted</div>` +
-    `<div style="font-size:13px;line-height:1.5;max-width:240px;color:${muted};">Your tools are connected. You can pick up right where you left off.</div>` +
-    `<button data-one-close style="width:100%;margin-top:8px;padding:10px 0;border:0;border-radius:12px;cursor:pointer;font-size:14px;font-weight:500;background:${dark ? "#fafafa" : "#111114"};color:${dark ? "#111114" : "#fafafa"};">Close</button>`;
+    `<div style="font-size:18px;font-weight:600;letter-spacing:-0.01em;color:${dark ? "#fafafa" : "#111114"};">Access granted</div>` +
+    `<div style="font-size:13px;line-height:1.5;max-width:280px;color:${muted};">Your tools are connected. You can pick up right where you left off.</div>` +
+    `<button data-one-close style="width:100%;max-width:320px;margin-top:8px;padding:11px 0;border:0;border-radius:12px;cursor:pointer;font-size:14px;font-weight:500;background:${dark ? "#fafafa" : "#111114"};color:${dark ? "#111114" : "#fafafa"};">Close</button>` +
+    "</div>" +
+    `<div style="height:48px;flex-shrink:0;display:flex;align-items:center;justify-content:center;gap:6px;border-radius:0 0 28px 28px;background:${footerBg};border:1px solid ${cardBorder};border-top:0;">` +
+    `<span style="font-size:11px;color:${muted};">Secured by</span>` +
+    `<span style="font-size:12px;font-weight:600;letter-spacing:-0.02em;color:${dark ? "#fafafa" : "#111114"};">one</span>` +
+    "</div>";
 
   overlay.appendChild(card);
   document.body.appendChild(overlay);
