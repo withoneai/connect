@@ -31,7 +31,12 @@ export const useOneConnect = (props: OneConnectProps): OneConnectHandle => {
   // card detects its own iframe with window.self !== window.top.
   const buildUrl = (): string => {
     try {
-      const url = new URL(props.authorize.url);
+      // Relative paths ("/api/one/authorize") resolve against the host
+      // page — the natural thing to write on a <one-connect-button>.
+      const url = new URL(
+        props.authorize.url,
+        typeof window === "undefined" ? undefined : window.location.origin,
+      );
       if (props.appTheme) url.hash = `${THEME_PARAM}=${props.appTheme}`;
       return url.toString();
     } catch {
