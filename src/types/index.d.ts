@@ -50,3 +50,41 @@ export interface OneConnectMessage {
   status: "success" | "error";
   message?: string;
 }
+
+/** A provider chip on the pre-built button. The SDK ships no One URLs,
+ *  so icon sources are the consumer's to provide. */
+export interface ConnectButtonPlatform {
+  name: string;
+  imageUrl?: string;
+}
+
+export interface ConnectButtonOptions {
+  /** Everything useOneConnect takes — the button wires open() and the
+   *  Connecting/Connected states around your callbacks. */
+  connect: OneConnectProps;
+  /** "Connect your apps" unless overridden. */
+  label?: string;
+  /** default = neutral pill; accent = brand-colored pill; block =
+   *  full-width consent card with description + "Secured by One" foot. */
+  variant?: "default" | "accent" | "block";
+  /** Matches the host page, not One's card (that's connect.appTheme). */
+  theme?: "light" | "dark";
+  /** Provider chips fanned on hover; first four render, the rest fold
+   *  into the +N chip together with moreCount. */
+  platforms?: ConnectButtonPlatform[];
+  /** Extra count for the +N chip (e.g. 274 for "the whole catalog"). */
+  moreCount?: number;
+  /** Sub-line on the block variant, shown while idle. */
+  description?: string;
+  /** accent variant fill; lime (#CCFF00) when omitted. */
+  accentColor?: string;
+  /** Label for the connected state ("4 apps connected"). */
+  connectedLabel?: string;
+}
+
+export interface ConnectButtonHandle {
+  /** Manually override the visual state. */
+  setState: (state: "idle" | "connecting" | "connected") => void;
+  /** Remove the button and tear down the flow wiring. */
+  destroy: () => void;
+}

@@ -145,6 +145,57 @@ export function ConnectWithOne() {
 | `open()` | Opens the Connect modal over the current page |
 | `close()` | Tears down the modal frame and its listeners |
 
+
+### Optional: the pre-built button
+
+Any element wired to `open()` works — the button below is **optional**.
+It ships in the same zero-dependency package, renders real DOM (so it
+mounts identically from React, Vue, or vanilla JS), and manages its own
+Connect → Connecting → Connected states by wrapping your callbacks.
+Provider icons are yours to supply — the SDK contains no One URLs.
+
+```tsx
+"use client";
+import { useEffect, useRef } from "react";
+import { mountConnectButton } from "@withone/connect";
+
+export function ConnectWithOne() {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const button = mountConnectButton(ref.current!, {
+      connect: {
+        authorize: { url: `${window.location.origin}/api/one/authorize` },
+        appTheme: "light",
+        onSuccess: () => {/* refresh your app state */},
+      },
+      label: "Connect your apps",
+      variant: "block",              // "default" | "accent" | "block"
+      theme: "light",                // matches YOUR page
+      platforms: [
+        { name: "Stripe", imageUrl: "/icons/stripe.svg" },
+        { name: "PostHog", imageUrl: "/icons/posthog.svg" },
+      ],
+      description:
+        "Bring your tools into this workspace. You pick what gets shared.",
+      connectedLabel: "Apps connected",
+    });
+    return () => button.destroy();
+  }, []);
+
+  return <div ref={ref} />;
+}
+```
+
+| Variant | Look |
+|---|---|
+| `default` | Neutral pill: provider chips (fan on hover), label, arrow |
+| `accent` | Same pill in your brand color (`accentColor`; lime fallback) |
+| `block` | Full-width consent card: title + chips, description, "Secured by One" foot |
+
+The returned handle has `setState("idle" | "connecting" | "connected")`
+for manual control and `destroy()` for teardown.
+
 ## 3 · Backend — the authorize route
 
 Generates `state` (CSRF proof) and PKCE (proof that whoever redeems the code is this server), stashes both in an httpOnly cookie, and 302s the browser to One.
