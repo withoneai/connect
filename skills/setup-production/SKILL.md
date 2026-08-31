@@ -50,11 +50,61 @@ ONE_PERMISSION_SET=...            # optional
 # ONE_API_URL=https://api.withone.ai/v1
 ```
 
-## 2 · Frontend — one button
+## 2 · Frontend — one component (or one hook)
 
 ```bash
 npm install @withone/connect
 ```
+
+**Fast path — the pre-built button** (optional but recommended). It
+wires the whole flow itself and manages Connect → Connecting →
+Connected. Provider icons are yours to supply — the SDK ships no One
+URLs.
+
+```tsx
+// React / Next
+import { ConnectButton } from "@withone/connect/react";
+
+export function ConnectWithOne() {
+  return (
+    <ConnectButton
+      authorizeUrl="/api/one/authorize"   // relative is fine
+      label="Connect your apps"
+      variant="default"                    // "default" | "accent" | "block"
+      theme="light"                        // matches YOUR page
+      platforms={[
+        { name: "Stripe", imageUrl: "/icons/stripe.svg" },
+      ]}
+      onSuccess={() => {/* backend already stored the tokens */}}
+      onError={(error) => console.error(error)}
+    />
+  );
+}
+```
+
+```vue
+<!-- Vue 3 -->
+<script setup>import { ConnectButton } from "@withone/connect/vue";</script>
+<template>
+  <ConnectButton authorize-url="/api/one/authorize"
+    :platforms="[{ name: 'Stripe', imageUrl: '/icons/stripe.svg' }]"
+    @success="onConnected" />
+</template>
+```
+
+```svelte
+<!-- Svelte (an action) -->
+<script>import { connectButton } from "@withone/connect/svelte";</script>
+<div use:connectButton={{ authorizeUrl: "/api/one/authorize",
+  platforms: [{ name: "Stripe", imageUrl: "/icons/stripe.svg" }],
+  onSuccess: () => {} }} />
+```
+
+Plain HTML / any other framework: `import "@withone/connect"` registers
+the `<one-connect-button>` custom element (same attributes, kebab-case;
+`platforms` as a JSON string; `success`/`error`/`close` CustomEvents).
+
+**Headless path** — any element you like, wired to `open()`:
 
 ```tsx
 "use client";
@@ -62,17 +112,15 @@ import { useOneConnect } from "@withone/connect";
 
 export function ConnectWithOne() {
   const { open } = useOneConnect({
-    // MUST be absolute — the card runs inside an iframe.
-    authorize: { url: `${window.location.origin}/api/one/authorize` },
+    authorize: { url: "/api/one/authorize" },  // relative resolves to the page origin
     appTheme: "light",              // or "dark"
-    onSuccess: () => {/* backend already stored the tokens; refresh app state */},
+    onSuccess: () => {/* backend already stored the tokens */},
     onError: (error) => console.error(error),
     onClose: () => {},
   });
   return <button onClick={open}>Connect your tools</button>;
 }
 ```
-
 No completion page exists: when the app's callback redirects to any
 same-origin URL carrying `?one_connect=success` (or `error` +
 `one_connect_message`), the SDK reads it off its frame, shows an
