@@ -101,7 +101,7 @@ function showResultOverlay(
   const cardBorder = dark ? "rgba(255,255,255,0.08)" : "rgba(228,228,223,0.9)";
   const footerBg = dark ? "rgba(45, 45, 44, 0.9)" : "rgba(232, 232, 228, 0.95)";
   card.innerHTML =
-    `<div style="position:relative;flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:40px 48px;border-radius:28px 28px 0 0;background:${cardBg};border:1px solid ${cardBorder};border-bottom:0;">` +
+    `<div style="position:relative;flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:24px 20px;border-radius:28px 28px 0 0;background:${cardBg};border:1px solid ${cardBorder};border-bottom:0;">` +
     `<button data-one-close aria-label="Close" style="position:absolute;top:16px;right:16px;width:20px;height:20px;padding:0;border:0;background:none;cursor:pointer;color:${muted};line-height:0;">` +
     '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>' +
     "</button>" +
