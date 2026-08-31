@@ -145,7 +145,7 @@ export async function GET(req: NextRequest) {
   url.searchParams.set("client_id", process.env.ONE_CLIENT_ID!);
   url.searchParams.set("redirect_uri", process.env.ONE_REDIRECT_URI!);
   url.searchParams.set("response_type", "code");
-  url.searchParams.set("scope", "user:connections:read user:connections:write");
+  url.searchParams.set("scope", "user:connections:read user:connections:write org:connections:read org:connections:write project:connections:read project:connections:write"); // all 3 tenancy tiers — org/project grants 403 without theirs
   url.searchParams.set("state", state);
   url.searchParams.set("code_challenge", challenge);
   url.searchParams.set("code_challenge_method", "S256");
