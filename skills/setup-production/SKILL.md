@@ -114,7 +114,12 @@ export async function GET(req: NextRequest) {
   res.cookies.set(`one_tx_${state}`, verifier, {
     httpOnly: true,
     secure: true,        // production is https
-    sameSite: "lax",
+    // None, not Lax: the callback navigation happens INSIDE the SDK's
+    // iframe at the end of a cross-site redirect chain (One -> here).
+    // Browsers only exempt TOP-LEVEL navigations from SameSite on
+    // cross-site-redirected requests, so a Lax cookie is silently
+    // dropped and the state check fails.
+    sameSite: "none",
     maxAge: 600,         // matches One's 10-minute single-use code
     // CRITICAL: path must cover the CALLBACK route's path — a narrower
     // path means the browser never sends the cookie to the callback and

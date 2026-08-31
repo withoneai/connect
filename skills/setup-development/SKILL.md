@@ -113,7 +113,14 @@ export async function GET(req: NextRequest) {
   // could ever complete. Expiry reaps the strays.
   res.cookies.set(`one_tx_${state}`, verifier, {
     httpOnly: true,
-    sameSite: "lax",
+    // None, not Lax: the callback navigation happens INSIDE the SDK's
+    // iframe at the end of a cross-site redirect chain (One -> here).
+    // Browsers only exempt TOP-LEVEL navigations from SameSite on
+    // cross-site-redirected requests, so a Lax cookie is silently
+    // dropped and the state check fails. None requires Secure
+    // (localhost counts as trustworthy, so http://localhost works).
+    sameSite: "none",
+    secure: true,
     maxAge: 600, // matches One's 10-minute single-use authorization code
     // CRITICAL: the path must cover the CALLBACK route's path, or the
     // browser will not send the cookie there and every exchange fails

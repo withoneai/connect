@@ -1,6 +1,6 @@
 {
   "name": "@withone/connect",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Frontend bindings for One Connect, a drop-in OAuth flow that lets your users grant your application scoped, revocable access to their own connected tools. The user owns the connections; you hold a token scoped to exactly what they granted.",
   "files": [
     "dist",

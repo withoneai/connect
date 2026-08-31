@@ -10,6 +10,7 @@ import {
   getEmbedIframe,
   removeEmbedIframe,
   removeSuccessOverlay,
+  showErrorOverlay,
   showSuccessOverlay,
 } from "./window";
 import type {
@@ -57,9 +58,10 @@ export const useOneConnect = (props: OneConnectProps): OneConnectHandle => {
     resultDelivered = true;
     teardown();
     // The confirmation beat: by now the frame is gone, so the SDK
-    // paints a brief "Access granted" card itself while the host page
-    // (already told via onSuccess below) updates underneath it.
+    // paints the result card itself — success AND error both live in
+    // the widget surface (same as authkit), never only in the host UI.
     if (status === "success") showSuccessOverlay(props.appTheme);
+    else showErrorOverlay(props.appTheme, message);
     try {
       if (status === "success") {
         props.onSuccess?.();

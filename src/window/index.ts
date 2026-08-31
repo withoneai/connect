@@ -42,13 +42,29 @@ export function removeEmbedIframe(): void {
 
 export const SUCCESS_ID = "one-connect-success";
 
-/** The "Access granted" confirmation shown after the grant completes —
- *  the same beat as authkit's "Connection established" screen, and
- *  dismissed the same way: the user closes it with the ✕ or the Close
- *  button, never a timer. By this point the card's iframe has already
- *  navigated home and been removed, so the SDK paints this itself.
- *  Pure inline styles — the SDK ships no CSS and loads no assets. */
+/** The result confirmation shown after the flow ends — the same beat as
+ *  authkit's in-frame result screens (success AND error both render in
+ *  the widget surface, never only in the host page), dismissed the same
+ *  way: the user closes it with the ✕ or the Close button, never a
+ *  timer. By this point the card's iframe has already navigated home
+ *  and been removed, so the SDK paints this itself. Pure inline styles
+ *  — the SDK ships no CSS and loads no assets. */
 export function showSuccessOverlay(theme?: "dark" | "light"): void {
+  showResultOverlay("success", theme);
+}
+
+export function showErrorOverlay(
+  theme?: "dark" | "light",
+  message?: string,
+): void {
+  showResultOverlay("error", theme, message);
+}
+
+function showResultOverlay(
+  status: "success" | "error",
+  theme?: "dark" | "light",
+  message?: string,
+): void {
   removeSuccessOverlay();
   const dark = theme === "dark";
   const overlay = document.createElement("div");
@@ -89,11 +105,13 @@ export function showSuccessOverlay(theme?: "dark" | "light"): void {
     `<button data-one-close aria-label="Close" style="position:absolute;top:16px;right:16px;width:20px;height:20px;padding:0;border:0;background:none;cursor:pointer;color:${muted};line-height:0;">` +
     '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>' +
     "</button>" +
-    '<div style="width:56px;height:56px;border-radius:50%;background:#10b981;display:flex;align-items:center;justify-content:center;">' +
-    '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>' +
+    `<div style="width:56px;height:56px;border-radius:50%;background:${status === "success" ? "#10b981" : "#ef4444"};display:flex;align-items:center;justify-content:center;">` +
+    (status === "success"
+      ? '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>'
+      : '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>') +
     "</div>" +
-    `<div style="font-size:18px;font-weight:600;letter-spacing:-0.01em;color:${dark ? "#fafafa" : "#111114"};">Access granted</div>` +
-    `<div style="font-size:13px;line-height:1.5;max-width:280px;color:${muted};">Your tools are connected. You can pick up right where you left off.</div>` +
+    `<div style="font-size:18px;font-weight:600;letter-spacing:-0.01em;color:${dark ? "#fafafa" : "#111114"};">${status === "success" ? "Access granted" : "Connection failed"}</div>` +
+    `<div data-one-result-body style="font-size:13px;line-height:1.5;max-width:280px;color:${muted};"></div>` +
     `<button data-one-close style="width:100%;margin-top:8px;padding:11px 0;border:0;border-radius:12px;cursor:pointer;font-size:14px;font-weight:500;background:${dark ? "#fafafa" : "#111114"};color:${dark ? "#111114" : "#fafafa"};">Close</button>` +
     "</div>" +
     `<div style="height:48px;flex-shrink:0;display:flex;align-items:center;justify-content:center;gap:6px;border-radius:0 0 28px 28px;background:${footerBg};border:1px solid ${cardBorder};border-top:0;">` +
@@ -101,6 +119,15 @@ export function showSuccessOverlay(theme?: "dark" | "light"): void {
     `<span style="display:inline-flex;color:${dark ? "#fafafa" : "#111114"};"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="12" cy="12" r="8.5"/></svg></span>` +
     `<span style="font-size:12px;font-weight:600;letter-spacing:-0.02em;color:${dark ? "#fafafa" : "#111114"};">one</span>` +
     "</div>";
+
+  // Message text arrives from a URL param — set as TEXT, never HTML.
+  const body = card.querySelector("[data-one-result-body]");
+  if (body)
+    body.textContent =
+      status === "success"
+        ? "Your tools are connected. You can pick up right where you left off."
+        : (message ??
+          "The connection was not completed. You can close this and try again.");
 
   overlay.appendChild(card);
   document.body.appendChild(overlay);
