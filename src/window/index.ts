@@ -98,6 +98,7 @@ export function showSuccessOverlay(theme?: "dark" | "light"): void {
     "</div>" +
     `<div style="height:48px;flex-shrink:0;display:flex;align-items:center;justify-content:center;gap:6px;border-radius:0 0 28px 28px;background:${footerBg};border:1px solid ${cardBorder};border-top:0;">` +
     `<span style="font-size:11px;color:${muted};">Secured by</span>` +
+    `<span style="display:inline-flex;color:${dark ? "#fafafa" : "#111114"};"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="12" cy="12" r="8.5"/></svg></span>` +
     `<span style="font-size:12px;font-weight:600;letter-spacing:-0.02em;color:${dark ? "#fafafa" : "#111114"};">one</span>` +
     "</div>";
 

@@ -56,8 +56,10 @@ const LIME = "#CCFF00";
 const SPRING = "#3FE3A5";
 const CARBON = "#0A0C0B";
 
-const SHIELD_SVG =
-  '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;flex-shrink:0"><path d="M8 1.5l5 2v4c0 3-2.2 5.6-5 7-2.8-1.4-5-4-5-7v-4l5-2z"/></svg>';
+/** The One ring mark — same glyph the card footer pairs with the
+ *  wordmark. Inline so the SDK stays free of One URLs. */
+const ONE_MARK_SVG =
+  '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" style="flex-shrink:0"><circle cx="12" cy="12" r="8.5"/></svg>';
 const ARROW_SVG =
   '<svg class="owcb-arrow" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l5 5-5 5"/></svg>';
 const TICK_SVG =
@@ -234,11 +236,17 @@ export const mountConnectButton = (
         sub.textContent = options.description;
         button.appendChild(sub);
       }
+      // Mirrors the card/overlay footer strip: "Secured by" + ring mark
+      // + "one" wordmark, so the button and the surface it opens read as
+      // the same product.
       const foot = document.createElement("span");
       foot.className = "owcb-block-foot";
       foot.style.color = palette.muted;
       foot.style.borderTop = `1px solid ${palette.line}`;
-      foot.innerHTML = `${SHIELD_SVG}<span>Secured by <b style="color:${palette.fg};font-weight:600">One</b></span>`;
+      foot.innerHTML =
+        `<span style="font-size:11px;color:${palette.muted}">Secured by</span>` +
+        `<span style="display:inline-flex;color:${palette.fg}">${ONE_MARK_SVG}</span>` +
+        `<span style="font-size:12px;font-weight:600;letter-spacing:-0.02em;color:${palette.fg}">one</span>`;
       button.appendChild(foot);
       return;
     }
@@ -292,3 +300,115 @@ export const mountConnectButton = (
     },
   };
 };
+
+/**
+ * <one-connect-button> — the simple path. One tag, any framework
+ * (React, Vue, Svelte, plain HTML): the element wires the whole flow
+ * itself from its attributes and manages Connect → Connecting →
+ * Connected. Registered automatically in the browser on import;
+ * defined inside a function so importing this module on a server
+ * (Next.js SSR) never touches HTMLElement.
+ *
+ * Attributes: authorize-url (required), app-theme, label, variant,
+ * theme, platforms (JSON array of {name, imageUrl}), more-count,
+ * description, accent-color, connected-label.
+ * Events: "success" | "error" (detail: message) | "close" — plus
+ * matching function properties (onSuccess/onError/onClose) that
+ * React 19 / Vue / Svelte set naturally as props.
+ */
+export function registerConnectButton(): void {
+  if (typeof window === "undefined" || typeof customElements === "undefined")
+    return;
+  if (customElements.get("one-connect-button")) return;
+
+  class OneConnectButtonElement extends HTMLElement {
+    static observedAttributes = [
+      "authorize-url",
+      "app-theme",
+      "label",
+      "variant",
+      "theme",
+      "platforms",
+      "more-count",
+      "description",
+      "accent-color",
+      "connected-label",
+    ];
+
+    onSuccess: (() => void) | null = null;
+    onError: ((error: string) => void) | null = null;
+    onClose: (() => void) | null = null;
+
+    private handle: ConnectButtonHandle | null = null;
+
+    connectedCallback(): void {
+      this.mount();
+    }
+
+    disconnectedCallback(): void {
+      this.handle?.destroy();
+      this.handle = null;
+    }
+
+    attributeChangedCallback(): void {
+      if (this.isConnected && this.handle) this.mount();
+    }
+
+    private mount(): void {
+      this.handle?.destroy();
+      this.handle = null;
+      const authorizeUrl = this.getAttribute("authorize-url");
+      if (!authorizeUrl) return; // nothing to wire yet
+
+      let platforms: ConnectButtonOptions["platforms"];
+      const rawPlatforms = this.getAttribute("platforms");
+      if (rawPlatforms) {
+        try {
+          const parsed = JSON.parse(rawPlatforms) as unknown;
+          if (Array.isArray(parsed)) platforms = parsed;
+        } catch {
+          /* malformed platforms JSON — render without chips */
+        }
+      }
+
+      const moreCountRaw = this.getAttribute("more-count");
+      const moreCount = moreCountRaw ? parseInt(moreCountRaw, 10) : undefined;
+
+      this.handle = mountConnectButton(this, {
+        connect: {
+          authorize: { url: authorizeUrl },
+          appTheme:
+            (this.getAttribute("app-theme") as "light" | "dark" | null) ??
+            undefined,
+          onSuccess: () => {
+            this.onSuccess?.();
+            this.dispatchEvent(new CustomEvent("success"));
+          },
+          onError: (error) => {
+            this.onError?.(error);
+            this.dispatchEvent(new CustomEvent("error", { detail: error }));
+          },
+          onClose: () => {
+            this.onClose?.();
+            this.dispatchEvent(new CustomEvent("close"));
+          },
+        },
+        label: this.getAttribute("label") ?? undefined,
+        variant:
+          (this.getAttribute("variant") as ConnectButtonOptions["variant"]) ??
+          undefined,
+        theme:
+          (this.getAttribute("theme") as "light" | "dark" | null) ?? undefined,
+        platforms,
+        moreCount: Number.isFinite(moreCount) ? moreCount : undefined,
+        description: this.getAttribute("description") ?? undefined,
+        accentColor: this.getAttribute("accent-color") ?? undefined,
+        connectedLabel: this.getAttribute("connected-label") ?? undefined,
+      });
+    }
+  }
+
+  customElements.define("one-connect-button", OneConnectButtonElement);
+}
+
+registerConnectButton();

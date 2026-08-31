@@ -88,3 +88,9 @@ export interface ConnectButtonHandle {
   /** Remove the button and tear down the flow wiring. */
   destroy: () => void;
 }
+
+/** Registers the <one-connect-button> custom element (no-op on servers
+ *  and when already registered). Importing the package does this
+ *  automatically in browsers; calling it manually is only needed if a
+ *  bundler stripped module side effects. */
+export declare function registerConnectButton(): void;

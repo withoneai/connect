@@ -148,53 +148,84 @@ export function ConnectWithOne() {
 
 ### Optional: the pre-built button
 
-Any element wired to `open()` works — the button below is **optional**.
-It ships in the same zero-dependency package, renders real DOM (so it
-mounts identically from React, Vue, or vanilla JS), and manages its own
-Connect → Connecting → Connected states by wrapping your callbacks.
-Provider icons are yours to supply — the SDK contains no One URLs.
+Any element wired to `open()` works — the button is **optional**. It
+ships as a custom element, `<one-connect-button>`, so the SAME tag
+works in React, Next, Vue, Svelte, or plain HTML — no refs, no mount
+calls. Importing the package registers it. It wires the whole flow
+itself and manages Connect → Connecting → Connected.
 
 ```tsx
-"use client";
-import { useEffect, useRef } from "react";
-import { mountConnectButton } from "@withone/connect";
+// React / Next (any framework — same tag everywhere)
+import "@withone/connect";
 
 export function ConnectWithOne() {
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const button = mountConnectButton(ref.current!, {
-      connect: {
-        authorize: { url: `${window.location.origin}/api/one/authorize` },
-        appTheme: "light",
-        onSuccess: () => {/* refresh your app state */},
-      },
-      label: "Connect your apps",
-      variant: "block",              // "default" | "accent" | "block"
-      theme: "light",                // matches YOUR page
-      platforms: [
-        { name: "Stripe", imageUrl: "/icons/stripe.svg" },
-        { name: "PostHog", imageUrl: "/icons/posthog.svg" },
-      ],
-      description:
-        "Bring your tools into this workspace. You pick what gets shared.",
-      connectedLabel: "Apps connected",
-    });
-    return () => button.destroy();
-  }, []);
-
-  return <div ref={ref} />;
+  return (
+    <one-connect-button
+      authorize-url="/api/one/authorize"
+      label="Connect your apps"
+      platforms='[{"name":"Stripe","imageUrl":"/icons/stripe.svg"},{"name":"PostHog","imageUrl":"/icons/posthog.svg"}]'
+      onSuccess={() => {/* tokens stored server-side — refresh app state */}}
+    />
+  );
 }
 ```
 
-| Variant | Look |
-|---|---|
-| `default` | Neutral pill: provider chips (fan on hover), label, arrow |
-| `accent` | Same pill in your brand color (`accentColor`; lime fallback) |
-| `block` | Full-width consent card: title + chips, description, "Secured by One" foot |
+```html
+<!-- Plain HTML / any framework -->
+<one-connect-button
+  authorize-url="/api/one/authorize"
+  label="Connect your apps"
+></one-connect-button>
+<script>
+  document.querySelector("one-connect-button")
+    .addEventListener("success", () => location.reload());
+</script>
+```
 
-The returned handle has `setState("idle" | "connecting" | "connected")`
-for manual control and `destroy()` for teardown.
+| Attribute | What it does |
+|---|---|
+| `authorize-url` | Your backend authorize route (required) |
+| `label` | Button text (default "Connect your apps") |
+| `variant` | `default` pill · `accent` brand pill · `block` consent card |
+| `theme` | `light` / `dark` — matches YOUR page |
+| `app-theme` | Theme for One's card |
+| `platforms` | JSON array of `{name, imageUrl}` — provider chips, fan on hover |
+| `more-count` | The `+N` chip (e.g. `274`) |
+| `description` | Sub-line on the `block` variant |
+| `accent-color` | Fill for the `accent` variant (lime fallback) |
+| `connected-label` | Label after success |
+
+Events: `success`, `error` (detail = message), `close` — or set the
+`onSuccess` / `onError` / `onClose` function props (React 19, Vue and
+Svelte set these naturally).
+
+TypeScript + React: add this once so JSX accepts the tag:
+
+```ts
+// one-connect-button.d.ts
+declare module "react" {
+  namespace JSX {
+    interface IntrinsicElements {
+      "one-connect-button": React.DetailedHTMLProps<
+        React.HTMLAttributes<HTMLElement>,
+        HTMLElement
+      > & {
+        "authorize-url"?: string; "app-theme"?: string; label?: string;
+        variant?: string; theme?: string; platforms?: string;
+        "more-count"?: string; description?: string;
+        "accent-color"?: string; "connected-label"?: string;
+        onSuccess?: () => void; onError?: (e: string) => void;
+        onClose?: () => void;
+      };
+    }
+  }
+}
+export {};
+```
+
+Programmatic alternative: `mountConnectButton(container, options)`
+takes the same options as an object (plus `connect: {…useOneConnect
+props}`) and returns `{ setState, destroy }`.
 
 ## 3 · Backend — the authorize route
 
