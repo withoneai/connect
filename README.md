@@ -293,7 +293,11 @@ export async function GET(req: NextRequest) {
   if (userEmail) url.searchParams.set("login_hint", userEmail);
 
   const res = NextResponse.redirect(url.toString(), 302);
-  res.cookies.set("one_tx", JSON.stringify({ state, verifier }), {
+  // One cookie PER flow — the name carries the state. Users open the
+  // modal more than once (retries, second tabs); a single shared cookie
+  // would be overwritten by each start, so only the LAST-opened flow
+  // could ever complete. Expiry reaps the strays.
+  res.cookies.set(`one_tx_${state}`, verifier, {
     httpOnly: true,
     secure: true,
     sameSite: "lax",
@@ -317,10 +321,11 @@ const ONE_TOKEN_URL = "https://api.withone.ai/oauth/token";
 export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get("code");
   const state = req.nextUrl.searchParams.get("state");
-  const tx = req.cookies.get("one_tx")?.value;
+  // The state that came back selects its own cookie — not finding one
+  // IS the CSRF failure (forged or stale state has no cookie).
+  const verifier = state ? req.cookies.get(`one_tx_${state}`)?.value : undefined;
 
-  const parsed = tx ? JSON.parse(tx) : null;
-  if (!code || !state || !parsed || parsed.state !== state) {
+  if (!code || !state || !verifier) {
     return NextResponse.redirect(
       new URL(
         "/?one_connect=error&one_connect_message=" +
@@ -345,7 +350,7 @@ export async function GET(req: NextRequest) {
       grant_type: "authorization_code",
       code,
       redirect_uri: process.env.ONE_REDIRECT_URI!,
-      code_verifier: parsed.verifier,
+      code_verifier: verifier,
     }),
   });
 
@@ -359,7 +364,7 @@ export async function GET(req: NextRequest) {
     ),
     302,
   );
-  res.cookies.delete("one_tx");
+  res.cookies.delete(`one_tx_${state}`);
 
   if (tokenRes.ok) {
     // { access_token, refresh_token, token_type: "bearer", expires_in, scope }
