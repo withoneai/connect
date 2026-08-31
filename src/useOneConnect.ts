@@ -140,8 +140,13 @@ export const useOneConnect = (props: OneConnectProps): OneConnectHandle => {
     iframe.addEventListener("load", handleFrameLoad);
   };
 
-  const close = () => {
-    removeSuccessOverlay();
+  const close = (options?: { keepResult?: boolean }) => {
+    // A shown result card must be able to OUTLIVE the trigger: hosts
+    // naturally unmount the button the moment onSuccess flips their
+    // state, and that unmount must not eat the confirmation. The
+    // overlay dismisses only via its own controls (X / Close / Esc /
+    // scrim) unless the host explicitly closes everything.
+    if (!options?.keepResult) removeSuccessOverlay();
     teardown();
   };
 

@@ -40,8 +40,10 @@ export interface OneConnectProps {
 export interface OneConnectHandle {
   /** Opens One's connect modal over the current page. */
   open: () => void;
-  /** Tears everything down: modal frame + listeners. */
-  close: () => void;
+  /** Tears everything down: modal frame + listeners. Pass
+   *  { keepResult: true } to leave an already-shown result overlay up
+   *  (it dismisses via its own controls). */
+  close: (options?: { keepResult?: boolean }) => void;
 }
 
 /** Message posted from the completion page up to the host page. */

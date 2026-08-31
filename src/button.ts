@@ -295,7 +295,7 @@ export const mountConnectButton = (
     setState,
     destroy: () => {
       destroyed = true;
-      handle.close();
+      handle.close({ keepResult: true });
       button.remove();
     },
   };
