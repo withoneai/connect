@@ -10,7 +10,7 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const pkg = require('./package.json');
 
-export default {
+const base = {
   input: 'src/index.ts',
   external: [],
   output: [
@@ -45,3 +45,23 @@ export default {
     terser(),
   ],
 };
+
+const reactBuild = {
+  input: 'src/react.ts',
+  external: ['react'],
+  output: [
+    { file: 'dist/react.cjs.js', format: 'cjs', exports: 'auto' },
+    { file: 'dist/react.esm.js', format: 'es' },
+  ],
+  plugins: [
+    typescript({ clean: true, include: ['src/**/*.ts', 'src/**/*.tsx'] }),
+    json(),
+    copy({ targets: [{ src: 'src/react-types.d.ts', dest: 'dist', rename: 'react.d.ts' }] }),
+    resolve({ browser: true, preferBuiltins: false, extensions: ['.mjs', '.js', '.json', '.node', '.jsx', '.ts', '.tsx'] }),
+    babel({ exclude: 'node_modules/**', babelHelpers: 'bundled', extensions: ['.ts', '.js', '.tsx', '.jsx'] }),
+    commonjs(),
+    terser(),
+  ],
+};
+
+export default [base, reactBuild];

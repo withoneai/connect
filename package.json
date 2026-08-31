@@ -1,6 +1,6 @@
 {
   "name": "@withone/connect",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "Frontend bindings for One Connect, a drop-in OAuth flow that lets your users grant your application scoped, revocable access to their own connected tools. The user owns the connections; you hold a token scoped to exactly what they granted.",
   "files": [
     "dist",
@@ -24,10 +24,12 @@
     "@rollup/plugin-node-resolve": "^15.2.3",
     "@rollup/plugin-terser": "^0.4.4",
     "@tsconfig/recommended": "^1.0.3",
+    "@types/react": "^19.2.18",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^7.0.0",
     "eslint": "^8.57.0",
     "prettier": "^3.2.5",
+    "react": "^19.2.8",
     "rollup": "^4.12.0",
     "rollup-plugin-copy": "^3.5.0",
     "rollup-plugin-typescript2": "^0.36.0",
@@ -59,5 +61,25 @@
     "agents"
   ],
   "license": "GPL-3.0",
-  "homepage": "https://withone.ai"
+  "homepage": "https://withone.ai",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.esm.js",
+      "require": "./dist/index.umd.js"
+    },
+    "./react": {
+      "types": "./dist/react.d.ts",
+      "import": "./dist/react.esm.js",
+      "require": "./dist/react.cjs.js"
+    }
+  },
+  "peerDependencies": {
+    "react": ">=17"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  }
 }

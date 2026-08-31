@@ -155,20 +155,27 @@ calls. Importing the package registers it. It wires the whole flow
 itself and manages Connect → Connecting → Connected.
 
 ```tsx
-// React / Next (any framework — same tag everywhere)
-import "@withone/connect";
+// React / Next — a real component:
+import { ConnectButton } from "@withone/connect/react";
 
 export function ConnectWithOne() {
   return (
-    <one-connect-button
-      authorize-url="/api/one/authorize"
+    <ConnectButton
+      authorizeUrl="/api/one/authorize"
       label="Connect your apps"
-      platforms='[{"name":"Stripe","imageUrl":"/icons/stripe.svg"},{"name":"PostHog","imageUrl":"/icons/posthog.svg"}]'
+      platforms={[
+        { name: "Stripe", imageUrl: "/icons/stripe.svg" },
+        { name: "PostHog", imageUrl: "/icons/posthog.svg" },
+      ]}
       onSuccess={() => {/* tokens stored server-side — refresh app state */}}
     />
   );
 }
 ```
+
+Every other framework (Vue, Svelte, plain HTML) uses the SAME widget as
+a custom element — `import "@withone/connect"` registers
+`<one-connect-button>`:
 
 ```html
 <!-- Plain HTML / any framework -->
