@@ -1,6 +1,6 @@
 {
   "name": "@withone/connect",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Frontend bindings for One Connect, a drop-in OAuth flow that lets your users grant your application scoped, revocable access to their own connected tools. The user owns the connections; you hold a token scoped to exactly what they granted.",
   "files": [
     "dist",
@@ -34,7 +34,8 @@
     "rollup-plugin-copy": "^3.5.0",
     "rollup-plugin-typescript2": "^0.36.0",
     "tslib": "^2.6.2",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "vue": "^3.5.42"
   },
   "author": "@withoneai",
   "publishConfig": {
@@ -72,13 +73,27 @@
       "types": "./dist/react.d.ts",
       "import": "./dist/react.esm.js",
       "require": "./dist/react.cjs.js"
+    },
+    "./vue": {
+      "types": "./dist/vue.d.ts",
+      "import": "./dist/vue.esm.js",
+      "require": "./dist/vue.cjs.js"
+    },
+    "./svelte": {
+      "types": "./dist/svelte.d.ts",
+      "import": "./dist/svelte.esm.js",
+      "require": "./dist/svelte.cjs.js"
     }
   },
   "peerDependencies": {
-    "react": ">=17"
+    "react": ">=17",
+    "vue": ">=3"
   },
   "peerDependenciesMeta": {
     "react": {
+      "optional": true
+    },
+    "vue": {
       "optional": true
     }
   }

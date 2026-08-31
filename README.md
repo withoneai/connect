@@ -173,9 +173,34 @@ export function ConnectWithOne() {
 }
 ```
 
-Every other framework (Vue, Svelte, plain HTML) uses the SAME widget as
-a custom element — `import "@withone/connect"` registers
-`<one-connect-button>`:
+```vue
+<!-- Vue 3 -->
+<script setup>
+import { ConnectButton } from "@withone/connect/vue";
+</script>
+<template>
+  <ConnectButton
+    authorize-url="/api/one/authorize"
+    :platforms="[{ name: 'Stripe', imageUrl: '/icons/stripe.svg' }]"
+    @success="onConnected"
+  />
+</template>
+```
+
+```svelte
+<!-- Svelte (an action — the idiomatic Svelte shape) -->
+<script>
+  import { connectButton } from "@withone/connect/svelte";
+</script>
+<div use:connectButton={{
+  authorizeUrl: "/api/one/authorize",
+  platforms: [{ name: "Stripe", imageUrl: "/icons/stripe.svg" }],
+  onSuccess: () => { /* refresh app state */ },
+}} />
+```
+
+Plain HTML (or any other framework) uses the SAME widget as a custom
+element — `import "@withone/connect"` registers `<one-connect-button>`:
 
 ```html
 <!-- Plain HTML / any framework -->

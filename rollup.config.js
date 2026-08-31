@@ -64,4 +64,22 @@ const reactBuild = {
   ],
 };
 
-export default [base, reactBuild];
+const subBuild = (name, externals) => ({
+  input: `src/${name}.ts`,
+  external: externals,
+  output: [
+    { file: `dist/${name}.cjs.js`, format: 'cjs', exports: 'auto' },
+    { file: `dist/${name}.esm.js`, format: 'es' },
+  ],
+  plugins: [
+    typescript({ clean: true, include: ['src/**/*.ts', 'src/**/*.tsx'] }),
+    json(),
+    copy({ targets: [{ src: `src/${name}-types.d.ts`, dest: 'dist', rename: `${name}.d.ts` }] }),
+    resolve({ browser: true, preferBuiltins: false, extensions: ['.mjs', '.js', '.json', '.node', '.jsx', '.ts', '.tsx'] }),
+    babel({ exclude: 'node_modules/**', babelHelpers: 'bundled', extensions: ['.ts', '.js', '.tsx', '.jsx'] }),
+    commonjs(),
+    terser(),
+  ],
+});
+
+export default [base, reactBuild, subBuild('vue', ['vue']), subBuild('svelte', [])];
