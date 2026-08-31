@@ -285,8 +285,9 @@ reconnect (they may have revoked from their One settings).
 
 ## 7 · Verify — done when ALL of these pass
 
-1. Clicking the button dims the page and shows the "Continue to <app>"
-   card (or "Signed in as …" if a One session exists in the browser).
+1. Clicking the button dims the page and shows the "<app> uses One to
+   connect your apps" card, with the "asking for" strip when a
+   permission set is configured.
 2. A fresh allowed-domain email receives a 6-digit code; entering it
    lands on the consent screen with the permission set's connectors.
 3. Connecting a tool + Authorize closes with an "Access granted" card,
