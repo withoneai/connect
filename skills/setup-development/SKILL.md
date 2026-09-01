@@ -284,9 +284,10 @@ reconnect (they may have revoked from their One settings).
 
 ## 7 · Verify — done when ALL of these pass
 
-1. Clicking the button dims the page and shows the "<app> uses One to
-   connect your apps" card, with the "asking for" strip when a
-   permission set is configured.
+1. Clicking the button navigates the TAB to
+   `development-connect.withone.ai/oauth/connect?…` — the hosted page
+   with the app's name on the left rail, and the "asking for" strip
+   when a permission set is configured.
 2. A fresh allowed-domain email receives a 6-digit code; entering it
    lands on the consent screen with the permission set's connectors.
 3. Authorize shows the "You're all set" summary with a countdown, then
