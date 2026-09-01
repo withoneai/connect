@@ -5,6 +5,7 @@ import type { ConnectButtonOptions, ConnectButtonPlatform } from "./types";
  *  the core mountConnectButton options. */
 export interface ConnectButtonWrapperProps {
   authorizeUrl: string;
+  mode?: "redirect" | "modal";
   appTheme?: "light" | "dark";
   onSuccess?: () => void;
   onError?: (error: string) => void;
@@ -32,6 +33,7 @@ export function optionsFromWrapperProps(
     connect: {
       authorize: { url: props.authorizeUrl },
       appTheme: props.appTheme,
+      mode: props.mode,
       onSuccess: () => cb.onSuccess?.(),
       onError: (error) => cb.onError?.(error),
       onClose: () => cb.onClose?.(),

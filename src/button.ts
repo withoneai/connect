@@ -325,6 +325,7 @@ export function registerConnectButton(): void {
     static observedAttributes = [
       "authorize-url",
       "app-theme",
+      "mode",
       "label",
       "variant",
       "theme",
@@ -379,6 +380,9 @@ export function registerConnectButton(): void {
           authorize: { url: authorizeUrl },
           appTheme:
             (this.getAttribute("app-theme") as "light" | "dark" | null) ??
+            undefined,
+          mode:
+            (this.getAttribute("mode") as "redirect" | "modal" | null) ??
             undefined,
           onSuccess: () => {
             this.onSuccess?.();

@@ -29,10 +29,9 @@ Development constraints to tell the human up front:
 - Sign-in codes are only issued to allowed email domains on development
   (`@withone.ai`, `@picaos.com`). Other domains get a silent 202 and no
   email — use a plus-alias like `you+test@withone.ai` for test users.
-- Cross-site (the app on a different site than One) works fully on
-  Chromium browsers today. Safari/Firefox block third-party cookies and
-  the final consent submission does not yet carry the flow token — expect
-  those to fail at the Authorize press until One ships that change.
+- The default full-page (redirect-mode) flow works in EVERY browser —
+  the page is first-party on One's own domain. Only the legacy
+  `mode: "modal"` iframe is limited to Chromium (third-party cookies).
 
 ## 1 · Environment
 
@@ -120,8 +119,10 @@ export function ConnectWithOne() {
   return <button onClick={open}>Connect your tools</button>;
 }
 ```
-The SDK opens a full-viewport transparent iframe; One renders a 520×520
-card over the dimmed page. No completion page exists: when this app's
+By default the flow opens FULL-PAGE in the same tab on One's hosted
+connect page — first-party cookies, so every browser works (Safari,
+Firefox, incognito included). Pass `mode: "modal"` on the button/hook
+for the legacy in-page iframe card. No completion page exists: when this app's
 callback finally redirects to any same-origin URL carrying
 `?one_connect=success` (or `error` + `one_connect_message`), the SDK reads
 it off the frame, shows an "Access granted" card, and fires `onSuccess`.

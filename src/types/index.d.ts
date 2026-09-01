@@ -16,6 +16,14 @@ export interface OneConnectResult {
 
 export interface OneConnectProps {
   /**
+   * "redirect" (default): the flow opens FULL-PAGE in the same tab on
+   * One's hosted connect domain — first-party cookies, every browser.
+   * The user returns via the app's own callback redirect; the SDK
+   * detects `?one_connect=…` on the next page load, fires the callback
+   * and shows the result card. "modal": the legacy in-page iframe.
+   */
+  mode?: "redirect" | "modal";
+  /**
    * The consumer's OWN backend route that starts the flow. It must
    * generate `state` + PKCE, set them in an httpOnly cookie, and 302
    * to One's /oauth/authorize (full recipe in the README). Must be an

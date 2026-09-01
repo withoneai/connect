@@ -27,11 +27,9 @@ Created at https://app.withone.ai → Settings → OAuth Apps → New OAuth App
   consent screen pre-fills; users can only narrow it.
 
 Tell the human up front:
-- **Browser support today:** the full cross-site flow works on Chromium
-  browsers. Safari and Firefox block third-party cookies and the final
-  consent submission does not yet ride the cookieless flow token — users
-  on those browsers will fail at the Authorize press until One ships
-  that change. Plan messaging accordingly.
+- **Browser support:** the default full-page (redirect-mode) flow works
+  in every browser — it runs first-party on One's own domain. Only the
+  legacy `mode: "modal"` iframe is limited to Chromium.
 - Users can revoke or narrow the grant anytime from their One dashboard;
   the app must treat 401/403 as "prompt to reconnect", never as a bug.
 

@@ -5,6 +5,7 @@ import type { ConnectButtonPlatform } from "./types";
 export interface ConnectButtonProps {
   authorizeUrl: string;
   appTheme?: "light" | "dark";
+  mode?: "redirect" | "modal";
   onSuccess?: () => void;
   onError?: (error: string) => void;
   onClose?: () => void;

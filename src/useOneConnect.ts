@@ -21,9 +21,15 @@ import type {
 
 // Like useOneAuth, this is a plain function rather than a React hook so
 // it works from any framework.
+
+/** The return leg is a page LOAD (redirect mode) — only the first hook
+ *  instance on the page consumes it. */
+let returnConsumed = false;
+
 export const useOneConnect = (props: OneConnectProps): OneConnectHandle => {
   let messageHandler: ((event: MessageEvent) => void) | null = null;
   let resultDelivered = false;
+  const mode = props.mode ?? "redirect";
 
   // The theme rides in the URL FRAGMENT: fragments never reach any
   // server and browsers carry them through the whole redirect chain
@@ -132,6 +138,14 @@ export const useOneConnect = (props: OneConnectProps): OneConnectHandle => {
 
   const open = () => {
     if (typeof window === "undefined") return;
+    if (mode === "redirect") {
+      // Full-page hosted flow, Stripe-Checkout style: same tab, One's
+      // own domain (first-party — works in every browser). The app's
+      // callback redirect brings the user home; detection below picks
+      // it up on the next load.
+      window.location.assign(buildUrl());
+      return;
+    }
     resultDelivered = false;
 
     messageHandler = handleMessage;
@@ -149,6 +163,26 @@ export const useOneConnect = (props: OneConnectProps): OneConnectHandle => {
     if (!options?.keepResult) removeSuccessOverlay();
     teardown();
   };
+
+  // Redirect-mode return detection: the app's callback redirected the
+  // TAB to a URL carrying ?one_connect=… — deliver it once, scrub the
+  // params so a refresh doesn't re-fire, and paint the result card.
+  if (typeof window !== "undefined" && !returnConsumed) {
+    const search = new URLSearchParams(window.location.search);
+    const returnStatus = search.get(RETURN_STATUS_PARAM);
+    if (returnStatus === "success" || returnStatus === "error") {
+      returnConsumed = true;
+      const returnMessage = search.get(RETURN_MESSAGE_PARAM) ?? undefined;
+      search.delete(RETURN_STATUS_PARAM);
+      search.delete(RETURN_MESSAGE_PARAM);
+      const clean =
+        window.location.pathname +
+        (search.toString() ? `?${search.toString()}` : "") +
+        window.location.hash;
+      window.history.replaceState(null, "", clean);
+      window.setTimeout(() => deliver(returnStatus, returnMessage), 0);
+    }
+  }
 
   return { open, close };
 };
