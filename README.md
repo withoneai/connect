@@ -44,7 +44,7 @@ yarn add @withone/connect
 
 ## How it works
 
-Everything sensitive — `state`, the PKCE verifier, your client secret, the tokens — lives on **your server**. The SDK is a thin modal opener: it never touches a token.
+Everything sensitive — `state`, the PKCE verifier, your client secret, the tokens — lives on **your server**. The SDK is a thin navigator: it sends the tab to One's hosted connect page and never touches a token.
 
 You build exactly **two backend routes and one button**.
 
@@ -56,7 +56,7 @@ sequenceDiagram
     participant One as One Connect
 
     User->>YourApp: Clicks "Connect your tools"
-    YourApp->>YourBackend: Open modal → GET /api/one/authorize
+    YourApp->>YourBackend: Navigate tab → GET /api/one/authorize
     YourBackend->>YourBackend: Mint state + PKCE, set httpOnly cookie
     YourBackend->>One: 302 → /oauth/authorize
     User->>One: Sign in, connect tools, narrow & grant access
@@ -65,10 +65,10 @@ sequenceDiagram
     YourBackend->>One: POST /oauth/token (code + verifier + secret)
     One->>YourBackend: Access token + refresh token
     YourBackend->>YourApp: 302 → /?one_connect=success
-    YourApp->>User: SDK closes the modal, onSuccess() fires
+    YourApp->>User: SDK detects the return, onSuccess() fires
 ```
 
-The SDK watches the modal frame for `?one_connect=` on your own origin — so **there is no completion page to build**.
+The SDK watches for `?one_connect=` on the page URL when the tab returns — so **there is no completion page to build**.
 
 ## 1 · Create your OAuth app
 
@@ -99,7 +99,7 @@ ONE_PERMISSION_SET=79659c66-...
 
 Replace the `authorize URL` with your backend authorize endpoint.
 
-> ⚠️ **Must be a full URL** — relative paths like `/api/one/authorize` won't work because the Connect card runs in an iframe. Use the complete URL (e.g., `https://your-domain.com/api/one/authorize`).
+> Relative paths like `/api/one/authorize` work — the SDK resolves them against your page's origin. A full URL is only required if the authorize route lives on a different origin than the page.
 
 ```tsx
 "use client";
@@ -120,7 +120,7 @@ export function ConnectWithOne() {
       console.error("Connect failed:", error);
     },
     onClose: () => {
-      console.log("Connect modal closed");
+      console.log("Connect flow closed");
     },
   });
 
@@ -142,8 +142,8 @@ export function ConnectWithOne() {
 
 | Method | Description |
 |---|---|
-| `open()` | Opens the Connect modal over the current page |
-| `close()` | Tears down the modal frame and its listeners |
+| `open()` | Navigates the tab to One's hosted connect flow |
+| `close()` | No-op kept for API stability — safe to call on unmount |
 
 
 ### Optional: the pre-built button
@@ -294,18 +294,15 @@ export async function GET(req: NextRequest) {
 
   const res = NextResponse.redirect(url.toString(), 302);
   // One cookie PER flow — the name carries the state. Users open the
-  // modal more than once (retries, second tabs); a single shared cookie
+  // flow more than once (retries, second tabs); a single shared cookie
   // would be overwritten by each start, so only the LAST-opened flow
   // could ever complete. Expiry reaps the strays.
   res.cookies.set(`one_tx_${state}`, verifier, {
     httpOnly: true,
     secure: true,
-    // None, not Lax: the callback navigation happens INSIDE the SDK's
-    // iframe at the end of a cross-site redirect chain (One -> here).
-    // Browsers only exempt TOP-LEVEL navigations from SameSite on
-    // cross-site-redirected requests, so a Lax cookie is silently
-    // dropped and the state check fails.
-    sameSite: "none",
+    // The callback is a TOP-LEVEL navigation on your own site, so Lax
+    // survives the cross-site redirect chain (One -> here).
+    sameSite: "lax",
     maxAge: 600, // matches One's 10-minute authorization-code lifetime
     path: "/api/one",
   });
@@ -315,7 +312,7 @@ export async function GET(req: NextRequest) {
 
 ## 4 · Backend — the callback route
 
-One redirects back with a **single-use code**, worthless without your secret and the PKCE verifier. Exchange it server-side, store the tokens, then redirect anywhere on your site with `?one_connect=success` appended — the SDK watches the frame for that parameter and closes the modal.
+One redirects back with a **single-use code**, worthless without your secret and the PKCE verifier. Exchange it server-side, store the tokens, then redirect anywhere on your site with `?one_connect=success` appended — the SDK reads that parameter off the page URL on return.
 
 ```typescript
 // app/api/one/callback/route.ts
@@ -453,19 +450,9 @@ const res = await fetch("https://api.withone.ai/v1/connections", {
 
 Execute actions through `/v1/passthrough/*` with the same bearer. Every call is checked inside One against what the user granted — a call outside the grant returns `403`, and your code cannot override it. That is the point.
 
-## Custom completion pages
+## Completion
 
-The standard integration needs no completion page: your callback's final redirect carries `?one_connect=success` on any same-origin URL, and the SDK reads it off the frame directly.
-
-If you render your own completion page instead, signal the SDK explicitly:
-
-```tsx
-import { completeOneConnect } from "@withone/connect";
-
-// Returns false when there was nothing to do (not inside a frame) —
-// render fallback UI in that case.
-completeOneConnect({ status: "success" });
-```
+There is no completion page to build: your callback's final redirect carries `?one_connect=success` on any same-origin URL. The SDK detects it, fires your callbacks, and scrubs the params from the address bar. The SDK paints no result UI of its own — One's hosted page already showed the success beat before redirecting back. If you want your own celebratory screen, just have the callback redirect there; append the `?one_connect=` params wherever the SDK is mounted.
 
 ## What your users see
 
@@ -477,8 +464,7 @@ In *your* dashboard, your OAuth app lists every user who granted access, and you
 
 - The client secret lives on your server only. Authenticate the token exchange with the `Authorization: Basic` header, as shown above.
 - The authorization code is single-use and expires in 10 minutes.
-- The SDK never handles tokens. It opens One's card in a modal iframe and watches for the `?one_connect=` result — there is nothing sensitive in the browser to leak.
-- The SDK only trusts messages originating from its own iframe, and only accepts results from your own origin.
+- The SDK never handles tokens. It navigates the tab to One's hosted connect page and watches for the `?one_connect=` result on the way back — there is nothing sensitive in the browser to leak.
 
 ## License
 

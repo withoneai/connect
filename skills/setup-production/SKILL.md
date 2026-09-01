@@ -27,9 +27,8 @@ Created at https://app.withone.ai → Settings → OAuth Apps → New OAuth App
   consent screen pre-fills; users can only narrow it.
 
 Tell the human up front:
-- **Browser support:** the default full-page (redirect-mode) flow works
-  in every browser — it runs first-party on One's own domain. Only the
-  legacy `mode: "modal"` iframe is limited to Chromium.
+- **Browser support:** the full-page hosted flow works in every
+  browser — it runs first-party on One's own domain.
 - Users can revoke or narrow the grant anytime from their One dashboard;
   the app must treat 401/403 as "prompt to reconnect", never as a bug.
 
@@ -119,10 +118,15 @@ export function ConnectWithOne() {
   return <button onClick={open}>Connect your tools</button>;
 }
 ```
-No completion page exists: when the app's callback redirects to any
-same-origin URL carrying `?one_connect=success` (or `error` +
-`one_connect_message`), the SDK reads it off its frame, shows an
-"Access granted" card, and fires `onSuccess`.
+By default the flow opens FULL-PAGE in the same tab on One's hosted
+connect page (`connect.withone.ai`) — first-party cookies, every
+browser works. No completion page exists: when the app's callback
+redirects to any same-origin URL carrying `?one_connect=success` (or
+`error` + `one_connect_message`), the SDK fires `onSuccess`/`onError`
+and scrubs the params from the address bar (with retries, surviving
+frameworks that restore their own URL on hydration). The SDK paints no
+result UI of its own — One's hosted page already showed the "You're all
+set" beat before sending the user back.
 
 ## 3 · Backend route 1 — authorize
 
@@ -154,18 +158,15 @@ export async function GET(req: NextRequest) {
 
   const res = NextResponse.redirect(url.toString(), 302);
   // One cookie PER flow — the name carries the state. Users open the
-  // modal more than once (retries, second tabs); a single shared cookie
+  // flow more than once (retries, second tabs); a single shared cookie
   // would be overwritten by each start, so only the LAST-opened flow
   // could ever complete. Expiry reaps the strays.
   res.cookies.set(`one_tx_${state}`, verifier, {
     httpOnly: true,
     secure: true,        // production is https
-    // None, not Lax: the callback navigation happens INSIDE the SDK's
-    // iframe at the end of a cross-site redirect chain (One -> here).
-    // Browsers only exempt TOP-LEVEL navigations from SameSite on
-    // cross-site-redirected requests, so a Lax cookie is silently
-    // dropped and the state check fails.
-    sameSite: "none",
+    // The callback is a TOP-LEVEL navigation on your own site, so Lax
+    // survives the cross-site redirect chain (One -> here).
+    sameSite: "lax",
     maxAge: 600,         // matches One's 10-minute single-use code
     // CRITICAL: path must cover the CALLBACK route's path — a narrower
     // path means the browser never sends the cookie to the callback and
@@ -304,8 +305,10 @@ out-of-grant calls return 403 the app cannot override.
 
 ## 8 · Go-live checklist — done when ALL pass
 
-1. Full grant on a production account in Chromium: button → card →
-   sign-in code (real inbox) → consent → "Access granted".
+1. Full grant on a production account: button → full-page hosted flow
+   on connect.withone.ai → sign-in code (real inbox) → consent →
+   "You're all set" → auto-return to the app. Repeat once in Safari or
+   incognito — the hosted flow must pass there too.
 2. Stored `expires_in` matches the chosen TTL (e.g. 604800 for 7 days).
 3. Refresh returns a rotated pair; a deliberately repeated old refresh
    token gets refused and the app's reconnect path engages.

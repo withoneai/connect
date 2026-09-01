@@ -20,10 +20,8 @@ export interface ConnectButtonProps {
   /** The app's own backend authorize route ("/api/one/authorize" is
    *  fine — relative resolves against the page). */
   authorizeUrl: string;
-  /** Theme for One's card (rides the URL fragment). */
+  /** Theme for One's hosted page (rides the URL fragment). */
   appTheme?: "light" | "dark";
-  /** "redirect" (default, full-page hosted flow) or "modal" (legacy iframe). */
-  mode?: "redirect" | "modal";
   onSuccess?: () => void;
   onError?: (error: string) => void;
   onClose?: () => void;
@@ -64,7 +62,6 @@ export function ConnectButton(props: ConnectButtonProps): ReactElement {
       connect: {
         authorize: { url: props.authorizeUrl },
         appTheme: props.appTheme,
-        mode: props.mode,
         onSuccess: () => callbacksRef.current.onSuccess?.(),
         onError: (error) => callbacksRef.current.onError?.(error),
         onClose: () => callbacksRef.current.onClose?.(),
@@ -88,7 +85,6 @@ export function ConnectButton(props: ConnectButtonProps): ReactElement {
   }, [
     props.authorizeUrl,
     props.appTheme,
-    props.mode,
     props.label,
     props.variant,
     props.theme,

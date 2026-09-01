@@ -3,11 +3,11 @@
  *
  * The SDK deliberately knows nothing about OAuth internals: state, PKCE
  * and the client secret live on the consumer's backend (see README).
- * The SDK only opens One's connect experience as a modal over the host
- * page and reports how the flow ended.
+ * The SDK only sends the tab to One's hosted connect page and reports
+ * how the flow ended when the user comes back.
  */
 
-/** Result posted back from the consumer's completion page. */
+/** How a completed flow reports back on the return URL. */
 export interface OneConnectResult {
   status: "success" | "error";
   /** Human-readable detail for the error case. */
@@ -16,49 +16,35 @@ export interface OneConnectResult {
 
 export interface OneConnectProps {
   /**
-   * "redirect" (default): the flow opens FULL-PAGE in the same tab on
-   * One's hosted connect domain — first-party cookies, every browser.
-   * The user returns via the app's own callback redirect; the SDK
-   * detects `?one_connect=…` on the next page load, fires the callback
-   * and shows the result card. "modal": the legacy in-page iframe.
-   */
-  mode?: "redirect" | "modal";
-  /**
    * The consumer's OWN backend route that starts the flow. It must
    * generate `state` + PKCE, set them in an httpOnly cookie, and 302
-   * to One's /oauth/authorize (full recipe in the README). Must be an
-   * absolute URL.
+   * to One's /oauth/authorize (full recipe in the README). Relative
+   * paths resolve against the host page's origin.
    */
   authorize: {
     url: string;
   };
-  /** Theme for One's card. Carried on the URL fragment (#one_theme=…),
-   *  which survives the redirect chain — the consumer's backend forwards
-   *  nothing. */
+  /** Theme for One's hosted page. Carried on the URL fragment
+   *  (#one_theme=…), which survives the redirect chain — the consumer's
+   *  backend forwards nothing. */
   appTheme?: "dark" | "light";
-  /** Fired when the completion page reports success. The token exchange
-   *  already happened on the consumer's backend by this point. */
+  /** Fired on return when the callback redirect carried
+   *  ?one_connect=success. The token exchange already happened on the
+   *  consumer's backend by this point. */
   onSuccess?: () => void;
-  /** Fired when the completion page reports an error. */
+  /** Fired on return when the callback redirect carried an error. */
   onError?: (error: string) => void;
-  /** Fired when the user closes the card without a result. */
+  /** Reserved for future use — the hosted flow's cancel path returns
+   *  through onError with the OAuth error string. */
   onClose?: () => void;
 }
 
 export interface OneConnectHandle {
-  /** Opens One's connect modal over the current page. */
+  /** Navigates the tab to One's hosted connect flow. */
   open: () => void;
-  /** Tears everything down: modal frame + listeners. Pass
-   *  { keepResult: true } to leave an already-shown result overlay up
-   *  (it dismisses via its own controls). */
+  /** No-op in the full-page flow — kept so hosts can call it
+   *  unconditionally (e.g. on unmount). */
   close: (options?: { keepResult?: boolean }) => void;
-}
-
-/** Message posted from the completion page up to the host page. */
-export interface OneConnectMessage {
-  type: string; // MESSAGE_TYPE constant
-  status: "success" | "error";
-  message?: string;
 }
 
 /** A provider chip on the pre-built button. The SDK ships no One URLs,
@@ -77,7 +63,7 @@ export interface ConnectButtonOptions {
   /** default = neutral pill; accent = brand-colored pill; block =
    *  full-width consent card with description + "Secured by One" foot. */
   variant?: "default" | "accent" | "block";
-  /** Matches the host page, not One's card (that's connect.appTheme). */
+  /** Matches the host page, not One's page (that's connect.appTheme). */
   theme?: "light" | "dark";
   /** Provider chips fanned on hover; first four render, the rest fold
    *  into the +N chip together with moreCount. */

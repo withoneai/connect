@@ -29,9 +29,8 @@ Development constraints to tell the human up front:
 - Sign-in codes are only issued to allowed email domains on development
   (`@withone.ai`, `@picaos.com`). Other domains get a silent 202 and no
   email — use a plus-alias like `you+test@withone.ai` for test users.
-- The default full-page (redirect-mode) flow works in EVERY browser —
-  the page is first-party on One's own domain. Only the legacy
-  `mode: "modal"` iframe is limited to Chromium (third-party cookies).
+- The full-page hosted flow works in EVERY browser — the page is
+  first-party on One's own domain (Safari, Firefox, incognito included).
 
 ## 1 · Environment
 
@@ -119,13 +118,16 @@ export function ConnectWithOne() {
   return <button onClick={open}>Connect your tools</button>;
 }
 ```
-By default the flow opens FULL-PAGE in the same tab on One's hosted
-connect page — first-party cookies, so every browser works (Safari,
-Firefox, incognito included). Pass `mode: "modal"` on the button/hook
-for the legacy in-page iframe card. No completion page exists: when this app's
-callback finally redirects to any same-origin URL carrying
-`?one_connect=success` (or `error` + `one_connect_message`), the SDK reads
-it off the frame, shows an "Access granted" card, and fires `onSuccess`.
+The flow opens FULL-PAGE in the same tab on One's hosted connect page
+(`development-connect.withone.ai`) — first-party cookies, so every
+browser works (Safari, Firefox, incognito included). No completion page
+exists: when this app's callback finally redirects to any same-origin
+URL carrying `?one_connect=success` (or `error` + `one_connect_message`),
+the SDK fires `onSuccess`/`onError` and scrubs the params from the
+address bar (with retries, so frameworks that restore their own URL on
+hydration — Next.js App Router — can't undo it). The SDK paints no
+result UI of its own: One's hosted page already showed the "You're all
+set" beat before sending the user back.
 
 ## 3 · Backend route 1 — authorize (starts the flow)
 
@@ -157,18 +159,14 @@ export async function GET(req: NextRequest) {
 
   const res = NextResponse.redirect(url.toString(), 302);
   // One cookie PER flow — the name carries the state. Users open the
-  // modal more than once (retries, second tabs); a single shared cookie
+  // flow more than once (retries, second tabs); a single shared cookie
   // would be overwritten by each start, so only the LAST-opened flow
   // could ever complete. Expiry reaps the strays.
   res.cookies.set(`one_tx_${state}`, verifier, {
     httpOnly: true,
-    // None, not Lax: the callback navigation happens INSIDE the SDK's
-    // iframe at the end of a cross-site redirect chain (One -> here).
-    // Browsers only exempt TOP-LEVEL navigations from SameSite on
-    // cross-site-redirected requests, so a Lax cookie is silently
-    // dropped and the state check fails. None requires Secure
-    // (localhost counts as trustworthy, so http://localhost works).
-    sameSite: "none",
+    // The callback is a TOP-LEVEL navigation on your own site, so Lax
+    // survives the cross-site redirect chain (One -> here).
+    sameSite: "lax",
     secure: true,
     maxAge: 600, // matches One's 10-minute single-use authorization code
     // CRITICAL: the path must cover the CALLBACK route's path, or the
@@ -291,9 +289,10 @@ reconnect (they may have revoked from their One settings).
    permission set is configured.
 2. A fresh allowed-domain email receives a 6-digit code; entering it
    lands on the consent screen with the permission set's connectors.
-3. Connecting a tool + Authorize closes with an "Access granted" card,
-   and the stored token's `expires_in` matches the app's chosen TTL
-   (604800 for 7 days — NOT 3600).
+3. Authorize shows the "You're all set" summary with a countdown, then
+   auto-returns to the app with `?one_connect=success` (scrubbed from
+   the address bar moments later), and the stored token's `expires_in`
+   matches the app's chosen TTL (604800 for 7 days — NOT 3600).
 4. The refresh helper returns a NEW access token and a NEW refresh token.
 5. `GET {ONE_API_URL}/connections` with the bearer returns exactly the
    granted rows.
