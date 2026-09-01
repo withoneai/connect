@@ -180,7 +180,24 @@ export const useOneConnect = (props: OneConnectProps): OneConnectHandle => {
         (search.toString() ? `?${search.toString()}` : "") +
         window.location.hash;
       window.history.replaceState(null, "", clean);
-      window.setTimeout(() => deliver(returnStatus, returnMessage), 0);
+      // No overlay here: in redirect mode One's HOSTED page already
+      // showed the result beat ("You're all set" + countdown / the
+      // failure screen) before sending the user home — painting a
+      // second card would double-announce. Callbacks still fire so the
+      // app updates its own state.
+      window.setTimeout(() => {
+        if (resultDelivered) return;
+        resultDelivered = true;
+        try {
+          if (returnStatus === "success") props.onSuccess?.();
+          else
+            props.onError?.(
+              returnMessage ?? "The connection was not completed.",
+            );
+        } catch {
+          /* consumer callback errors are not our problem */
+        }
+      }, 0);
     }
   }
 
