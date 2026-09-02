@@ -197,7 +197,11 @@ export const mountConnectButton = (
         : palette.btnBg;
     const fg = block ? palette.fg : accent ? CARBON : palette.btnFg;
     const chipRing = block ? palette.surface : bg;
-    const moreColor = block ? palette.muted : fg;
+    // The "+N" chip sits on a WHITE background (like the provider chips),
+    // so its text must be dark — never the button's fg, which is white on
+    // the default dark button and would vanish. CARBON matches the
+    // letter-fallback chips.
+    const moreColor = CARBON;
 
     button.style.background = state === "connected" && !block ? SPRING : bg;
     button.style.color = state === "connected" && !block ? CARBON : fg;
