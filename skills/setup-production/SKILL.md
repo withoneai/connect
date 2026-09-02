@@ -275,21 +275,88 @@ Concurrency note: serialize refreshes per user (a lock or single-flight);
 two racing refreshes with the same token trip reuse detection and revoke
 the family.
 
-## 6 · Using the grant
+## 6 · Using the grant — HTTP `/v1`
+
+The bearer is a normal credential on One's standard `/v1` API — every
+route below accepts `auth: [oauth]`. One resolves the token to the user
++ their consent grant and enforces it on every call (down to per-action
+rules); a call outside the grant returns `403` the app cannot override.
 
 ```ts
-const ONE_API_URL = process.env.ONE_API_URL ?? "https://api.withone.ai/v1";
-const token = await getOneAccessToken(userId);
-
-// Discover what the user granted (ungranted connections are invisible):
-const res = await fetch(`${ONE_API_URL}/connections`, {
-  headers: { Authorization: `Bearer ${token}` },
-});
+const api = process.env.ONE_API_URL ?? "https://api.withone.ai/v1";
+const h = { Authorization: `Bearer ${await getOneAccessToken(userId)}` };
 ```
 
-Execute actions through `/v1/passthrough/*` with the same bearer. One
-enforces the user's exact grant (down to per-action rules) on every call;
-out-of-grant calls return 403 the app cannot override.
+**Discover the grant's reach** — `GET /v1/connections/reachable`. Every
+connection the grant reaches, each labelled with the access it confers,
+so the app never guesses what it holds:
+
+```ts
+const { rows } = await (
+  await fetch(`${api}/connections/reachable`, { headers: h })
+).json();
+// rows[].access.policy: "full" | "methods" {methods:[…]} |
+//   "actions" {actions:[{ actionId, title, method }]}
+```
+
+(`GET /v1/connections` also works but omits the `access` label — prefer
+`reachable`.)
+
+**Catalog** — `GET /v1/knowledge?connectionPlatform=<p>` lists what
+actions EXIST (rows have `_id`, `method`, `path`, `title`). The catalog
+is what's possible; the grant is what's permitted.
+
+**Execute** — `{METHOD} /v1/passthrough/<path>` with two headers:
+
+```ts
+await fetch(`${api}/passthrough${action.path}`, {
+  method: action.method,
+  headers: {
+    ...h,
+    "x-one-connection-key": connectionKey,  // from reachable
+    "x-one-action-id": action._id,          // from knowledge
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify(payload),
+});
+// Inside the grant → proxied to the provider. Outside → 403 with a
+// `correlationId`: the request died inside One, never reached the
+// provider. That is the grant working.
+```
+
+## 6b · Using the grant — remote MCP (agents / assistants)
+
+The **same bearer** authenticates One's remote MCP gateway
+(`https://mcp.withone.ai/mcp`), which accepts the OAuth bearer
+**exclusively** (no API key, no session; missing/bad bearer → 401).
+Point any MCP client at it with the token as the `Authorization` header
+(the URL + bearer are One's contract; the JSON is your client's format):
+
+```json
+{
+  "mcpServers": {
+    "one": {
+      "url": "https://mcp.withone.ai/mcp",
+      "headers": { "Authorization": "Bearer <the user's access token>" }
+    }
+  }
+}
+```
+
+Four tools, each enforcing the **same consent grant** as the HTTP path
+(one enforcement, two transports): `list_one_integrations` (= the
+reachable listing), `search_one_platform_actions`,
+`get_one_action_knowledge`, and `execute_one_action`
+(`connection_key` + `action_id` + optional `data`/`path_variables`/
+`query_params`/`headers`; an ungranted call is refused with "not
+permitted by the consent grant").
+
+## 6c · The CLI does NOT take the grant token
+
+The One CLI authenticates only with an `sk_live_`/`sk_test_` secret key
+in `x-one-secret` — no OAuth/bearer path. A 2nd-degree user's grant
+token cannot drive the CLI; use HTTP `/v1` (§6) or remote MCP (§6b) for
+programmatic use of a grant.
 
 ## 7 · Production hardening — non-negotiable
 
