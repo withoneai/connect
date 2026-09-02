@@ -103,12 +103,15 @@ function buildStack(
   chipRing: string,
   moreColor: string,
 ): HTMLElement | null {
+  // At most this many provider chips render; everything past it folds
+  // into a single "+N" chip so the button stays clean and uncrowded.
+  const MAX_VISIBLE_CHIPS = 3;
   const platforms = options.platforms ?? [];
   if (platforms.length === 0 && !options.moreCount) return null;
   const stack = document.createElement("span");
   stack.className = "owcb-stack";
   stack.setAttribute("aria-hidden", "true");
-  for (const platform of platforms.slice(0, 4)) {
+  for (const platform of platforms.slice(0, MAX_VISIBLE_CHIPS)) {
     const chip = document.createElement("span");
     chip.className = "owcb-chip";
     chip.style.background = "#ffffff";
@@ -132,7 +135,8 @@ function buildStack(
     stack.appendChild(chip);
   }
   const extra =
-    (options.moreCount ?? 0) + Math.max(0, platforms.length - 4);
+    (options.moreCount ?? 0) +
+    Math.max(0, platforms.length - MAX_VISIBLE_CHIPS);
   if (extra > 0) {
     const more = document.createElement("span");
     more.className = "owcb-chip owcb-more";
