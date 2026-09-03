@@ -56,6 +56,21 @@ const LIME = "#CCFF00";
 const SPRING = "#3FE3A5";
 const CARBON = "#0A0C0B";
 
+/** One's connector-asset logo for a platform NAME — so a developer can
+ *  pass `{ name: "Stripe" }` with no imageUrl and still get the real
+ *  logo. "Google Calendar" → google-calendar.svg. The chip's own onError
+ *  falls back to the first letter if a name has no matching asset. */
+function logoUrlFromName(name: string): string {
+  const slug = name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return slug
+    ? `https://assets.withone.ai/connectors/${slug}.svg`
+    : "";
+}
+
 /** The One ring mark — same glyph the card footer pairs with the
  *  wordmark. Inline so the SDK stays free of One URLs. */
 const ONE_MARK_SVG =
@@ -116,21 +131,26 @@ function buildStack(
     chip.className = "owcb-chip";
     chip.style.background = "#ffffff";
     chip.style.boxShadow = `0 0 0 1.5px ${chipRing}`;
-    if (platform.imageUrl) {
-      const img = document.createElement("img");
-      img.alt = "";
-      img.src = platform.imageUrl;
-      img.addEventListener("error", () => {
-        img.style.display = "none";
-        chip.textContent = platform.name.charAt(0).toUpperCase();
-        chip.style.font = "600 10px ui-monospace,monospace";
-        chip.style.color = CARBON;
-      });
-      chip.appendChild(img);
-    } else {
+    // imageUrl is OPTIONAL: a developer may pass just a name. When they
+    // do, derive One's connector-asset logo from the name; if that 404s
+    // (or the passed URL fails), fall back to the name's first letter.
+    const letterFallback = () => {
       chip.textContent = platform.name.charAt(0).toUpperCase();
       chip.style.font = "600 10px ui-monospace,monospace";
       chip.style.color = CARBON;
+    };
+    const src = platform.imageUrl ?? logoUrlFromName(platform.name);
+    if (src) {
+      const img = document.createElement("img");
+      img.alt = "";
+      img.src = src;
+      img.addEventListener("error", () => {
+        img.remove();
+        letterFallback();
+      });
+      chip.appendChild(img);
+    } else {
+      letterFallback();
     }
     stack.appendChild(chip);
   }
