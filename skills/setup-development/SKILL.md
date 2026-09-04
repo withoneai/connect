@@ -167,7 +167,11 @@ export async function GET(req: NextRequest) {
     // The callback is a TOP-LEVEL navigation on your own site, so Lax
     // survives the cross-site redirect chain (One -> here).
     sameSite: "lax",
-    secure: true,
+    // Secure ONLY where the page is actually https. This skill targets
+    // http://localhost, where a Secure cookie is silently DROPPED by
+    // Safari (Chrome/Firefox merely exempt localhost) - the callback then
+    // sees no cookie and rejects every exchange as "tampered".
+    secure: req.nextUrl.protocol === "https:",
     maxAge: 600, // matches One's 10-minute single-use authorization code
     // CRITICAL: the path must cover the CALLBACK route's path, or the
     // browser will not send the cookie there and every exchange fails
