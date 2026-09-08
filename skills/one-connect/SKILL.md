@@ -1,9 +1,9 @@
 ---
-name: one-connect-setup-production
-description: Wire @withone/connect into an application against One's PRODUCTION environment (api.withone.ai) - the button, the two backend routes, token refresh, using the grant, and a go-live checklist. Use when shipping One Connect to real users.
+name: one-connect
+description: Enable One Connect - a drop-in OAuth 2.1 flow that lets your users grant your application scoped, revocable access to their own connected tools (Gmail, Slack, Notion, Stripe and 500+ more). Use when wiring @withone/connect into an application - the button, the backend routes, token refresh and using the grant.
 ---
 
-# One Connect - production setup
+# One Connect Integration Guide
 
 You are adding **One Connect** to this application. Its users will grant the
 app scoped, revocable access to their own One-connected tools (Gmail,
@@ -12,8 +12,8 @@ Stripe, Notion, ...) through standard OAuth 2.1 (authorization code + PKCE).
 What you build is small:
 
 ```
-Frontend                Your backend                          One (production)
---------                ------------                          ----------------
+Frontend                Your backend                          One
+--------                ------------                          ---
 <ConnectButton>  ---->  GET /api/one/authorize  ----302---->  api.withone.ai/oauth/authorize
                                                               -> hosted page on connect.withone.ai
                                                                  (sign-in code, pick tools, consent)
@@ -27,8 +27,8 @@ Later, every call:      getOneAccessToken(user) -> refresh if needed
 ```
 
 All secrets and tokens stay on the backend. The browser only ever sees the
-button and the redirects. Production endpoints are the SDK's defaults, so
-no endpoint URLs need configuring.
+button and the redirects. One's endpoints are the SDK's defaults, so no
+endpoint URLs need configuring.
 
 ## 1 - Collect from the human first
 
@@ -60,7 +60,7 @@ ONE_REDIRECT_URI=https://yourapp.com/api/one/callback   # exactly the registered
 ONE_PERMISSION_SET=...                                     # optional
 ```
 
-Nothing else. Production is the default:
+Nothing else. One's endpoints are the SDK's defaults:
 `https://api.withone.ai/oauth/authorize`, `https://api.withone.ai/oauth/token`,
 `https://api.withone.ai/v1`. Never put the secret in a client bundle, a log
 line or an error report.
@@ -167,7 +167,7 @@ export async function GET(req: NextRequest) {
   // and only the last-opened flow could complete.
   res.cookies.set(`one_tx_${state}`, verifier, {
     httpOnly: true,
-    secure: true,          // production is https
+    secure: true,          // the redirect URI is https
     sameSite: "lax",       // the callback is a top-level navigation back to your site
     maxAge: 600,           // One's authorization code lives 10 minutes
     path: "/",             // MUST cover the callback route's path, or the cookie never arrives
@@ -327,7 +327,7 @@ no API key). Its tools enforce the same grant: `list_one_integrations`,
 The One CLI does not accept grant tokens (it uses `sk_live_` keys only). Use
 HTTP `/v1` or MCP for a 2nd-degree user's grant.
 
-## 8 - Rules that keep production safe
+## 8 - Rules that keep the integration safe
 
 - `401` from One means the token is expired, revoked or invalid: clear the
   stored tokens and show "Reconnect". `403` means the call is outside the
