@@ -42,6 +42,16 @@ With yarn:
 yarn add @withone/connect
 ```
 
+## Getting Started with the Skill
+
+The easiest way to integrate One Connect is by installing the skill for your AI coding agent. The skill provides step-by-step guidance for setting up the button, the two backend routes, token refresh, and using the grant.
+
+```bash
+npx skills add withoneai/connect
+```
+
+Once installed, your AI coding agent will have full context on how to set up and work with One Connect in your project.
+
 ## How it works
 
 Everything sensitive — `state`, the PKCE verifier, your client secret, the tokens — lives on **your server**. The SDK is a thin navigator: it sends the tab to One's hosted connect page and never touches a token.
