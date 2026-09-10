@@ -327,6 +327,43 @@ no API key). Its tools enforce the same grant: `list_one_integrations`,
 The One CLI does not accept grant tokens (it uses `sk_live_` keys only). Use
 HTTP `/v1` or MCP for a 2nd-degree user's grant.
 
+## 7b - Organization and project grants: send the tenant headers
+
+On the consent screen the user chooses WHERE the grant lives: their personal
+space, an organization, or a project. A grant made into an organization or
+project reaches that tenant's connections, and One resolves a bearer's
+tenant per call from two headers:
+
+```
+X-One-Organization-Id: <organization id>
+X-One-Project-Id:      <project id>        (only for a project grant)
+```
+
+Without them the call runs in the user's PERSONAL scope: for an
+organization grant `GET /v1/connections/reachable` returns an empty list and
+the app looks disconnected. A header may only name a tenant the grant
+covers; naming any other tenant is refused.
+
+The access token says which tenant it was granted for. Its JWT payload
+(plain base64url JSON, no secret needed) carries `organization_ids` and
+`project_ids`; a hosted-flow grant carries at most one of each:
+
+```ts
+function tenancyHeaders(accessToken: string): Record<string, string> {
+  const payload = JSON.parse(Buffer.from(accessToken.split(".")[1], "base64url").toString());
+  const headers: Record<string, string> = {};
+  if (payload.organization_ids?.[0]) headers["X-One-Organization-Id"] = payload.organization_ids[0];
+  if (payload.project_ids?.[0]) headers["X-One-Project-Id"] = payload.project_ids[0];
+  return headers;
+}
+
+const headers = { Authorization: `Bearer ${token}`, ...tenancyHeaders(token) };
+```
+
+Send these on every `/v1` call made with the grant: reachable, knowledge and
+passthrough alike. A personal grant has no ids, so the helper adds nothing and
+the same code serves all three cases.
+
 ## 8 - Rules that keep the integration safe
 
 - `401` from One means the token is expired, revoked or invalid: clear the
