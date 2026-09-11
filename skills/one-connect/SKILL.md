@@ -48,6 +48,14 @@ Tell the human up front:
 
 - The hosted flow runs full-page on One's own domain, so it works in every
   browser.
+- The consent screen can carry one sentence from the app saying WHY it
+  asks ("Dormata needs Notion to keep your workspace in sync"). This is set
+  on the app itself, in the dashboard's "Why you're asking" field or with
+  `consentReason` on `PATCH /v1/oauth-clients/{clientId}` (one line, at most
+  200 characters; `null` removes it). It is deliberately NOT an authorize
+  URL parameter and nothing in this SDK sends it: the authorize URL is
+  unauthenticated, so text carried there could be written by anyone who
+  sends a user the link. Do not try to pass it from the button.
 - Users can revoke the grant at any time from their One dashboard. The app
   must treat a `401` from One as "prompt to reconnect", never as a bug.
 
