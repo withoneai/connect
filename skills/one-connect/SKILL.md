@@ -114,9 +114,11 @@ const { open } = useOneConnect({
 ```
 
 How completion works: the flow navigates the same tab to One's hosted page and
-back. Your callback (step 5) ends by redirecting to any page of your app with
-`?one_connect=success` (or `?one_connect=error&one_connect_message=...`). The
-SDK reads that on page load, fires `onSuccess` or `onError`, and removes the
+back to your callback route (step 5). Like any OAuth callback, that route
+must redirect the user on to a page of your app. Redirect wherever makes
+sense. If you want the SDK's `onSuccess` / `onError` to fire, add
+`?one_connect=success` (or `?one_connect=error&one_connect_message=...`) to
+that URL: the SDK reads it on page load, fires the callback, and removes the
 params from the address bar.
 
 ## 4 - Backend route 1: authorize
