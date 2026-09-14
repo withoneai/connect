@@ -88,8 +88,7 @@ export function ConnectWithOne() {
 ```
 
 `platforms` draws provider logos on the button; pass a `name` and the SDK
-finds the logo, or pass `imageUrl` to override it. Optional props:
-`moreCount`, `description`, `accentColor`, `connectedLabel`, `onClose`.
+finds the logo, or pass `imageUrl` to override it.
 
 Vue 3: `import { ConnectButton } from "@withone/connect/vue"` with
 `authorize-url`, `:platforms`, and `@success` / `@error` / `@close`.
