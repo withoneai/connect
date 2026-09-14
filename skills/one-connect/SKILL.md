@@ -14,7 +14,7 @@ button, an authorize route, a callback route, and a token helper.
 Browser                    Your backend                              One
 -------                    ------------                              ---
 <ConnectButton>  ------>   GET /api/one/authorize  ---302--->  api.withone.ai/oauth/authorize
-                                                              -> One's hosted page (app.withone.ai)
+                                                              -> One's hosted page (connect.withone.ai)
                                                                  sign-in code, pick tools, consent
                            GET /api/one/callback   <--302----  ?code=...&state=...
                              exchanges code for tokens (server to server)
