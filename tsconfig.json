@@ -1,13 +1,17 @@
 {
   "compilerOptions": {
-    "target": "esnext", // Let Babel deal with transpiling new language features
+    "target": "es2020",
     "module": "esnext",
     "moduleResolution": "node",
+    "lib": [
+      "es2022",
+      "dom",
+      "dom.iterable"
+    ],
     "resolveJsonModule": true,
     "jsx": "preserve",
     "noEmit": true,
     "declaration": true,
-    "allowJs": true,
     "removeComments": false,
     "strict": true,
     "forceConsistentCasingInFileNames": true,
@@ -15,8 +19,30 @@
     "skipLibCheck": true,
     "allowSyntheticDefaultImports": true,
     "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
     "importHelpers": true,
-    "isolatedModules": true
+    "isolatedModules": true,
+    "types": [
+      "node"
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "@withone/connect": [
+        "src/index.ts"
+      ],
+      "@withone/connect/server": [
+        "src/server/index.ts"
+      ],
+      "@withone/connect/next": [
+        "src/next.ts"
+      ],
+      "@withone/connect/node": [
+        "src/node.ts"
+      ]
+    },
+    "rootDir": "src"
   },
-  "include": ["./src"]
+  "include": [
+    "src"
+  ]
 }

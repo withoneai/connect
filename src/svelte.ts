@@ -1,37 +1,37 @@
 /**
- * Svelte — `import { connectButton } from "@withone/connect/svelte"`.
+ * Svelte: `import { connectButton } from "@withone/connect/svelte"`.
  *
- * A Svelte ACTION (the idiomatic Svelte shape for DOM-mounting
- * libraries), so no Svelte compiler or dependency is involved:
+ * A Svelte action, the idiomatic shape for DOM-mounting libraries, so no
+ * Svelte compiler or dependency is involved:
  *
  *   <div use:connectButton={{ authorizeUrl: "/api/one/authorize",
- *     platforms: [{ name: "Stripe", imageUrl: "/icons/stripe.svg" }],
+ *     platforms: ["stripe", "notion"],
  *     onSuccess: () => { ... } }} />
  */
-import { mountConnectButton } from "./button";
 import {
-  optionsFromWrapperProps,
-  type ConnectButtonWrapperProps,
-} from "./wrapper-options";
-import type { ConnectButtonHandle } from "./types";
+  mountConnectButton,
+  optionsFromProps,
+  type ConnectButtonHandle,
+  type ConnectButtonProps,
+} from "@withone/connect";
 
-export type { ConnectButtonWrapperProps as ConnectButtonProps };
+export type { ConnectButtonProps };
 
 export function connectButton(
   node: HTMLElement,
-  props: ConnectButtonWrapperProps,
+  props: ConnectButtonProps,
 ): {
-  update: (next: ConnectButtonWrapperProps) => void;
+  update: (next: ConnectButtonProps) => void;
   destroy: () => void;
 } {
   let handle: ConnectButtonHandle = mountConnectButton(
     node,
-    optionsFromWrapperProps(props),
+    optionsFromProps(props),
   );
   return {
-    update(next: ConnectButtonWrapperProps) {
+    update(next: ConnectButtonProps) {
       handle.destroy();
-      handle = mountConnectButton(node, optionsFromWrapperProps(next));
+      handle = mountConnectButton(node, optionsFromProps(next));
     },
     destroy() {
       handle.destroy();
