@@ -1,13 +1,13 @@
 /**
- * Vue 3 — `import { ConnectButton } from "@withone/connect/vue"`.
+ * Vue 3: `import { ConnectButton } from "@withone/connect/vue"`.
  *
  *   <ConnectButton
  *     authorize-url="/api/one/authorize"
- *     :platforms="[{ name: 'Stripe', imageUrl: '/icons/stripe.svg' }]"
+ *     :platforms="['stripe', 'notion']"
  *     @success="onConnected"
  *   />
  *
- * vue is an optional peer dependency of THIS subpath only.
+ * Vue is an optional peer dependency of this subpath only.
  */
 import {
   defineComponent,
@@ -19,23 +19,29 @@ import {
 } from "vue";
 import type { PropType } from "vue";
 
-import { mountConnectButton } from "./button";
-import { optionsFromWrapperProps } from "./wrapper-options";
-import type { ConnectButtonHandle, ConnectButtonPlatform } from "./types";
+import {
+  mountConnectButton,
+  optionsFromProps,
+  propsIdentity,
+  type ConnectButtonHandle,
+  type ConnectButtonPlatformInput,
+  type ConnectButtonVariant,
+  type OneConnectTheme,
+} from "@withone/connect";
 
 export const ConnectButton = defineComponent({
   name: "OneConnectButton",
   props: {
     authorizeUrl: { type: String, required: true },
-    appTheme: { type: String as PropType<"light" | "dark">, default: undefined },
+    appTheme: { type: String as PropType<OneConnectTheme>, default: undefined },
     label: { type: String, default: undefined },
     variant: {
-      type: String as PropType<"default" | "accent" | "block">,
+      type: String as PropType<ConnectButtonVariant>,
       default: undefined,
     },
-    theme: { type: String as PropType<"light" | "dark">, default: undefined },
+    theme: { type: String as PropType<OneConnectTheme>, default: undefined },
     platforms: {
-      type: Array as PropType<ConnectButtonPlatform[]>,
+      type: Array as PropType<ConnectButtonPlatformInput[]>,
       default: undefined,
     },
     moreCount: { type: Number, default: undefined },
@@ -43,7 +49,10 @@ export const ConnectButton = defineComponent({
     accentColor: { type: String, default: undefined },
     connectedLabel: { type: String, default: undefined },
   },
-  emits: ["success", "error", "close"],
+  emits: {
+    success: () => true,
+    error: (message: string) => typeof message === "string",
+  },
   setup(props, { emit }) {
     const container = ref<HTMLElement | null>(null);
     let handle: ConnectButtonHandle | null = null;
@@ -54,33 +63,18 @@ export const ConnectButton = defineComponent({
       if (!container.value) return;
       handle = mountConnectButton(
         container.value,
-        optionsFromWrapperProps(
+        optionsFromProps(
           { ...props },
           {
             onSuccess: () => emit("success"),
-            onError: (error) => emit("error", error),
-            onClose: () => emit("close"),
+            onError: (message) => emit("error", message),
           },
         ),
       );
     };
 
     onMounted(mount);
-    watch(
-      () => [
-        props.authorizeUrl,
-        props.appTheme,
-        props.label,
-        props.variant,
-        props.theme,
-        JSON.stringify(props.platforms ?? []),
-        props.moreCount,
-        props.description,
-        props.accentColor,
-        props.connectedLabel,
-      ],
-      mount,
-    );
+    watch(() => propsIdentity({ ...props }), mount);
     onBeforeUnmount(() => {
       handle?.destroy();
       handle = null;

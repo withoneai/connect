@@ -1,14 +1,15 @@
 {
   "name": "@withone/connect",
-  "version": "0.8.3",
-  "description": "Frontend bindings for One Connect, a drop-in OAuth flow that lets your users grant your application scoped, revocable access to their own connected tools. The user owns the connections; you hold a token scoped to exactly what they granted.",
+  "version": "0.9.0",
+  "description": "One Connect for your app: the button your users press, the two backend routes as one import, and a server client that calls One with the grant. Users keep their connections in One; your app holds only what they granted.",
   "files": [
     "dist",
     "src",
+    "skills",
     "README.md",
     "LICENSE"
   ],
-  "main": "dist/index.umd.js",
+  "main": "dist/index.cjs.js",
   "module": "dist/index.esm.js",
   "types": "dist/index.d.ts",
   "devDependencies": {
@@ -24,17 +25,15 @@
     "@rollup/plugin-node-resolve": "^15.2.3",
     "@rollup/plugin-terser": "^0.4.4",
     "@tsconfig/recommended": "^1.0.3",
+    "@types/node": "^22.15.0",
     "@types/react": "^19.2.18",
-    "@typescript-eslint/eslint-plugin": "^7.0.0",
-    "@typescript-eslint/parser": "^7.0.0",
-    "eslint": "^8.57.0",
     "prettier": "^3.2.5",
     "react": "^19.2.8",
     "rollup": "^4.12.0",
-    "rollup-plugin-copy": "^3.5.0",
     "rollup-plugin-typescript2": "^0.36.0",
     "tslib": "^2.6.2",
     "typescript": "^5.3.3",
+    "vitest": "^3.2.4",
     "vue": "^3.5.42"
   },
   "author": "@withoneai",
@@ -42,11 +41,15 @@
     "access": "public"
   },
   "scripts": {
-    "prepublishOnly": "npm run build",
-    "build": "rollup -c && npm run verify",
-    "verify": "node -e \"const fs=require('fs'),p=require('./package.json');const miss=[p.main,p.module,p.types].filter(f=>!fs.existsSync(f));if(miss.length){console.error('Build output missing: '+miss.join(', '));process.exit(1)}console.log('Build verified: '+[p.main,p.module,p.types].join(', '))\"",
-    "lint": "eslint src --ext .ts,.tsx",
-    "format": "prettier --write \"src/**/*.{ts,tsx}\""
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
+    "build": "npm run clean && rollup -c && npm run declarations && npm run verify",
+    "verify": "node scripts/verify-build.js",
+    "typecheck": "tsc --noEmit -p tsconfig.tests.json",
+    "test": "vitest run",
+    "check": "npm run typecheck && npm run test && npm run build",
+    "prepublishOnly": "npm run check",
+    "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\"",
+    "declarations": "tsc -p tsconfig.build.json"
   },
   "repository": {
     "type": "git",
@@ -67,7 +70,7 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.esm.js",
-      "require": "./dist/index.umd.js"
+      "require": "./dist/index.cjs.js"
     },
     "./react": {
       "types": "./dist/react.d.ts",
@@ -83,7 +86,23 @@
       "types": "./dist/svelte.d.ts",
       "import": "./dist/svelte.esm.js",
       "require": "./dist/svelte.cjs.js"
-    }
+    },
+    "./server": {
+      "types": "./dist/server/index.d.ts",
+      "import": "./dist/server/index.esm.js",
+      "require": "./dist/server/index.cjs.js"
+    },
+    "./next": {
+      "types": "./dist/next.d.ts",
+      "import": "./dist/next.esm.js",
+      "require": "./dist/next.cjs.js"
+    },
+    "./node": {
+      "types": "./dist/node.d.ts",
+      "import": "./dist/node.esm.js",
+      "require": "./dist/node.cjs.js"
+    },
+    "./package.json": "./package.json"
   },
   "peerDependencies": {
     "react": ">=17",
@@ -96,5 +115,8 @@
     "vue": {
       "optional": true
     }
+  },
+  "engines": {
+    "node": ">=18"
   }
 }

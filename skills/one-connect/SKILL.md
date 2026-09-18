@@ -1,54 +1,47 @@
 ---
 name: one-connect
-description: Add One Connect to an application - a drop-in OAuth 2.1 flow that lets its users grant the app scoped, revocable access to their own connected tools (Gmail, Slack, Notion, Stripe and 500+ more). Use when wiring @withone/connect into an app - the button, the two backend routes, token refresh and calling One with the grant.
+description: Add One Connect to an application so its users can grant the app scoped, revocable access to their own One-connected tools (Gmail, Slack, Notion, Stripe and 500 more). Use when wiring @withone/connect into an app - the button, the two backend routes, and calling One with the grant.
 ---
 
 # One Connect
 
 You are adding One Connect to this application. Its users will grant the app
-scoped, revocable access to their own One-connected tools through standard
-OAuth 2.1 (authorization code with PKCE). You build four small things: a
-button, an authorize route, a callback route, and a token helper.
+scoped, revocable access to their own One-connected tools. The package does
+the OAuth work; you wire three things: a button, the two routes, and the
+calls you make with the grant.
 
 ```
 Browser                    Your backend                              One
--------                    ------------                              ---
-<ConnectButton>  ------>   GET /api/one/authorize  ---302--->  api.withone.ai/oauth/authorize
-                                                              -> One's hosted page (connect.withone.ai)
-                                                                 sign-in code, pick tools, consent
-                           GET /api/one/callback   <--302----  ?code=...&state=...
-                             exchanges code for tokens (server to server)
-                             stores tokens, redirects to /?one_connect=success
-                 <------   SDK sees the param and fires onSuccess
-
-Every later call:          getOneAccessToken(user)  -> refresh when needed
-                           Authorization: Bearer <token> -> api.withone.ai/v1/...
+<ConnectButton>  ------>   GET /api/one/authorize   ---302--->  One's hosted page (connect.withone.ai)
+                                                                sign-in code, pick tools, set access
+                           GET /api/one/callback    <--302----  ?code=...&state=...
+                             exchanges the code, stores the tokens
+                             302 -> /?one_connect=success
+                 <------   SDK reads the param and fires onSuccess
+Later:                     oneConnect.runAction(userId, ...) -> /v1/passthrough, grant enforced by One
 ```
 
-Secrets and tokens never reach the browser. One's endpoints are the SDK's
-defaults; nothing about One's URLs needs configuring.
+Secrets and tokens never reach the browser.
 
 ## 1 - Collect from the human first
 
-The human creates the app at https://app.withone.ai -> Settings -> OAuth Apps
--> New OAuth App. Client type **Confidential**. The secret is shown once.
+The human creates the app in the One dashboard: Developers -> Connect ->
+New app. Confidential client. The secret is shown once.
 
 | Value | Notes |
 |---|---|
 | `ONE_CLIENT_ID` | 40 hex characters |
 | `ONE_CLIENT_SECRET` | starts with `one_secret_` |
-| Registered redirect URI | Must be the exact URL of the callback route from step 5 (scheme, host, path, no trailing slash). One compares the string as-is and answers `invalid redirect_uri` on any difference. Use `https` for anything public. |
-| Access-token lifetime | Set on the app: 7 days (604800 s), 30 days, 90 days or 1 year. This is what `expires_in` returns. |
-| `ONE_PERMISSION_SET` (optional) | UUID of a permission set on the app: the connectors and access levels the consent screen asks for. Users can narrow it, never widen it. Without one, the app asks for everything the user has connected. |
+| Registered redirect URI | Must be the exact URL of the callback route (scheme, host, path, no trailing slash). One compares the string as-is and answers `invalid redirect_uri` on any difference. Use `https` for anything public; `http://localhost:3000/api/one/callback` is fine locally. |
+| `ONE_PERMISSION_SET` (optional) | The id of the app's ask: the connectors and levels the consent page opens on. Users can narrow it, never widen it. Without one, the page lists everything the user has connected. |
+| Environment | Production is the default. For the development dashboard set `ONE_API_URL=https://development-api.withone.ai`. |
 
-Two more facts to tell the human:
+Two facts to tell the human:
 
-- The app can show its users one sentence saying why it asks, for example
-  "Dormata needs Notion to keep your workspace in sync". It is set on the app
-  in the dashboard ("Why you're asking", one line, up to 200 characters). It
-  is not a URL parameter and this SDK never sends it.
-- Users can revoke the grant from their One dashboard at any time. The app
-  must treat a `401` from One as "ask the user to reconnect", not as a bug.
+- The app can show its users one line saying why it asks. It is set on the
+  app in the dashboard, not sent by this package.
+- Users can change or revoke the grant from their One dashboard at any time.
+  Treat a `401` from One as "ask the user to reconnect", never as a bug.
 
 ## 2 - Environment (server only)
 
@@ -57,298 +50,145 @@ ONE_CLIENT_ID=...
 ONE_CLIENT_SECRET=one_secret_...
 ONE_REDIRECT_URI=https://yourapp.com/api/one/callback   # exactly the registered value
 ONE_PERMISSION_SET=...                                     # optional
+ONE_API_URL=https://api.withone.ai                         # optional; development-api.withone.ai for development
 ```
 
-Never put the secret in a client bundle, a log line or an error report.
-
-## 3 - Frontend: the button
+## 3 - Install and create the client
 
 ```bash
 npm install @withone/connect
 ```
 
-React / Next:
+```ts
+// lib/one.ts  (server only)
+import { createOneConnect } from "@withone/connect/server";
+
+export const oneConnect = createOneConnect({
+  clientId: process.env.ONE_CLIENT_ID!,
+  clientSecret: process.env.ONE_CLIENT_SECRET!,
+  redirectUri: process.env.ONE_REDIRECT_URI!,
+  permissionSet: process.env.ONE_PERMISSION_SET,
+  oneApiUrl: process.env.ONE_API_URL,
+  tokenStore: {
+    saveTokens: (userId, tokens) => /* write to this app's database, encrypted, keyed by its user */,
+    loadTokens: (userId) => /* read; null when the user never connected */,
+    clearTokens: (userId) => /* delete */,
+  },
+});
+```
+
+`tokens` is `{ accessToken, refreshToken, expiresAt }`. Use the app's own user
+id as the key. Implement the store on whatever the app already uses; do not
+add a database for it.
+
+## 4 - The two routes
+
+Next.js App Router (also Remix, SvelteKit, Hono, Bun: anything with the web `Request`):
+
+```ts
+// app/api/one/[action]/route.ts
+import { createOneConnectRoutes } from "@withone/connect/next";
+import { oneConnect } from "@/lib/one";
+
+export const { GET } = createOneConnectRoutes(oneConnect, {
+  identifyUser: async (request) => /* this app's signed-in user id, or null */,
+  loginHintFor: async (request) => /* their email, to pre-fill One's sign-in; or null */,
+  signInUrl: "/login",   // where to send a visitor who is not signed in
+});
+```
+
+That file serves `/api/one/authorize` and `/api/one/callback`.
+
+Express, Fastify, Koa, plain Node:
+
+```ts
+import { createOneConnectHandlers } from "@withone/connect/node";
+import { oneConnect } from "./one";
+
+const { authorize, callback } = createOneConnectHandlers(oneConnect, {
+  identifyUser: (request) => /* user id or null */,
+});
+app.get("/api/one/authorize", authorize);
+app.get("/api/one/callback", callback);
+```
+
+The routes mint `state` and PKCE, keep them in a per-flow httpOnly cookie
+(`one_tx_<state>`, SameSite=Lax, 30 minutes), verify the state on return,
+exchange the code with the secret over HTTP Basic, store both tokens, and
+redirect to `/` with `?one_connect=success` or
+`?one_connect=error&one_connect_message=...`. Pass `returnTo` to
+`createOneConnect` to land somewhere else.
+
+## 5 - The button
 
 ```tsx
 import { ConnectButton } from "@withone/connect/react";
 
-export function ConnectWithOne() {
-  return (
-    <ConnectButton
-      authorizeUrl="/api/one/authorize"   // your route from step 4; relative is fine
-      label="Connect your apps"
-      variant="default"                    // "default" | "accent" | "block"
-      theme="light"                        // "light" | "dark", match your page
-      platforms={[{ name: "Stripe" }, { name: "Google Calendar" }]}
-      onSuccess={() => {/* tokens are already stored by your callback */}}
-      onError={(message) => console.error(message)}
-    />
-  );
-}
+<ConnectButton
+  authorizeUrl="/api/one/authorize"
+  platforms={["stripe", "google-calendar"]}   // connector slugs; logos and names come from One
+  onSuccess={() => { /* refresh app state; the tokens are already stored */ }}
+  onError={(message) => { /* show it; the user may simply have declined */ }}
+/>
 ```
 
-`platforms` draws provider logos on the button; pass a `name` and the SDK
-finds the logo, or pass `imageUrl` to override it.
+Vue: `import { ConnectButton } from "@withone/connect/vue"` with `authorize-url`,
+`:platforms`, `@success`, `@error`. Svelte: `import { connectButton } from
+"@withone/connect/svelte"` as `use:connectButton={{ authorizeUrl, platforms,
+onSuccess }}`. Anything else: `import "@withone/connect"` registers
+`<one-connect-button authorize-url="/api/one/authorize" platforms="stripe, notion">`,
+which dispatches `success` and `error` events. A custom element:
+`useOneConnect({ authorizeUrl, onSuccess, onError }).open` on a click.
 
-Vue 3: `import { ConnectButton } from "@withone/connect/vue"` with
-`authorize-url`, `:platforms`, and `@success` / `@error` / `@close`.
+The flow is a same-tab redirect. `onSuccess` and `onError` fire once when the
+tab comes back, and the SDK removes the `one_connect` params from the URL.
 
-Svelte: `import { connectButton } from "@withone/connect/svelte"` and
-`<div use:connectButton={{ authorizeUrl, platforms, onSuccess }} />`.
+## 6 - Calling One with the grant
 
-Anything else: `import "@withone/connect"` registers
-`<one-connect-button authorize-url="/api/one/authorize" platforms='[{"name":"Stripe"}]'>`,
-which emits `success` / `error` / `close` events.
-
-Your own element:
-
-```tsx
-import { useOneConnect } from "@withone/connect";
-
-const { open } = useOneConnect({
-  authorize: { url: "/api/one/authorize" },
-  onSuccess: () => {},
-  onError: (message) => console.error(message),
-});
-// <button onClick={open}>Connect your tools</button>
-```
-
-How completion works: the flow navigates the same tab to One's hosted page and
-back to your callback route (step 5). Like any OAuth callback, that route
-must redirect the user on to a page of your app. Redirect wherever makes
-sense. If you want the SDK's `onSuccess` / `onError` to fire, add
-`?one_connect=success` (or `?one_connect=error&one_connect_message=...`) to
-that URL: the SDK reads it on page load, fires the callback, and removes the
-params from the address bar.
-
-## 4 - Backend route 1: authorize
+Everything runs on the server through the client. Tokens refresh themselves.
 
 ```ts
-// app/api/one/authorize/route.ts   (Next.js App Router; adapt to your stack)
-import { createHash, randomBytes } from "crypto";
-import { NextRequest, NextResponse } from "next/server";
+const connections = await oneConnect.listConnections(userId);
+// [{ key, platform, name, title, image, access }]
+// access.policy: "full" | "methods" (+ methods: ["GET", ...]) | "actions" (+ actions: [{ actionId, title, method }])
 
-export async function GET(req: NextRequest) {
-  const state = randomBytes(16).toString("hex");                          // CSRF proof
-  const verifier = randomBytes(32).toString("base64url");                 // PKCE secret, stays here
-  const challenge = createHash("sha256").update(verifier).digest("base64url");
+const actions = await oneConnect.listActions(userId, "gmail");
+// [{ _id, title, method, path }]  - what exists, not what is permitted
 
-  const url = new URL("https://api.withone.ai/oauth/authorize");
-  url.searchParams.set("client_id", process.env.ONE_CLIENT_ID!);
-  url.searchParams.set("redirect_uri", process.env.ONE_REDIRECT_URI!);
-  url.searchParams.set("response_type", "code");
-  // The user picks where the grant lives (personal, organization or project)
-  // on the consent screen. Ask for all three tiers so any choice works.
-  url.searchParams.set(
-    "scope",
-    "user:connections:read user:connections:write org:connections:read org:connections:write project:connections:read project:connections:write",
-  );
-  url.searchParams.set("state", state);
-  url.searchParams.set("code_challenge", challenge);
-  url.searchParams.set("code_challenge_method", "S256");
-  if (process.env.ONE_PERMISSION_SET)
-    url.searchParams.set("permission_set", process.env.ONE_PERMISSION_SET);
-  const userEmail: string | null = null;   // this app's signed-in user, if known
-  if (userEmail) url.searchParams.set("login_hint", userEmail);   // pre-fills sign-in, never locks it
-
-  const res = NextResponse.redirect(url.toString(), 302);
-  // One cookie per flow, named by its state, so a retry or a second tab
-  // cannot overwrite the verifier of a flow still in progress.
-  res.cookies.set(`one_tx_${state}`, verifier, {
-    httpOnly: true,
-    secure: true,
-    sameSite: "lax",       // the callback is a top-level navigation back to your site
-    maxAge: 1800,
-    path: "/",             // must cover the callback route's path
-  });
-  return res;
-}
-```
-
-## 5 - Backend route 2: callback
-
-Served at exactly the registered redirect URI.
-
-```ts
-// app/api/one/callback/route.ts
-import { NextRequest, NextResponse } from "next/server";
-
-export async function GET(req: NextRequest) {
-  const code = req.nextUrl.searchParams.get("code");
-  const state = req.nextUrl.searchParams.get("state");
-  const error = req.nextUrl.searchParams.get("error");        // "access_denied" when the user declines
-  // The returned state names its own cookie. No cookie means a forged or
-  // stale state: never exchange the code in that case.
-  const verifier = state ? req.cookies.get(`one_tx_${state}`)?.value : undefined;
-
-  const fail = (message: string) => {
-    const r = NextResponse.redirect(
-      new URL(`/?one_connect=error&one_connect_message=${encodeURIComponent(message)}`, req.url), 302);
-    if (state) r.cookies.delete(`one_tx_${state}`);
-    return r;
-  };
-  if (error === "access_denied") return fail("You cancelled the request.");
-  if (!code || !state || !verifier) return fail("The sign-in attempt expired or was tampered with.");
-
-  // Client authentication is HTTP Basic (client_secret_basic). One does not
-  // accept the secret in the POST body.
-  const basic = Buffer.from(`${process.env.ONE_CLIENT_ID}:${process.env.ONE_CLIENT_SECRET}`).toString("base64");
-  const tokenRes = await fetch("https://api.withone.ai/oauth/token", {
-    method: "POST",
-    headers: { Authorization: `Basic ${basic}`, "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "authorization_code",
-      code,
-      redirect_uri: process.env.ONE_REDIRECT_URI!,
-      code_verifier: verifier,
-    }),
-  });
-  if (!tokenRes.ok) return fail("One rejected the code exchange.");
-
-  const t = (await tokenRes.json()) as {
-    access_token: string;
-    refresh_token: string;
-    expires_in: number;      // seconds; the app's access-token lifetime
-    token_type: "Bearer";
-  };
-  // Store encrypted, keyed by YOUR user id (the signed-in user of this app).
-  await saveOneTokens(appUserId, {
-    accessToken: t.access_token,
-    refreshToken: t.refresh_token,
-    expiresAt: Date.now() + t.expires_in * 1000,
-  });
-
-  const ok = NextResponse.redirect(new URL("/?one_connect=success", req.url), 302);
-  ok.cookies.delete(`one_tx_${state}`);
-  return ok;
-}
-```
-
-The code is single-use and expires 10 minutes after consent.
-
-## 6 - Refreshing the access token
-
-- Access tokens live for the app's access-token lifetime (`expires_in`).
-- Refresh tokens live 30 days and rotate on every use: each refresh returns
-  a new access token and a new refresh token. Store both.
-- Reusing a refresh token that was already rotated is treated as theft: One
-  revokes the whole token family and the user must reconnect.
-- The refresh call is Basic-authenticated, like the code exchange.
-
-```ts
-export async function getOneAccessToken(appUserId: string): Promise<string> {
-  const t = await loadOneTokens(appUserId);
-  if (!t) throw new Error("not connected");
-  if (Date.now() < t.expiresAt - 60_000) return t.accessToken;     // still valid, 60 s margin
-
-  const basic = Buffer.from(`${process.env.ONE_CLIENT_ID}:${process.env.ONE_CLIENT_SECRET}`).toString("base64");
-  const res = await fetch("https://api.withone.ai/oauth/token", {
-    method: "POST",
-    headers: { Authorization: `Basic ${basic}`, "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ grant_type: "refresh_token", refresh_token: t.refreshToken }),
-  });
-  if (!res.ok) {
-    await clearOneTokens(appUserId);           // family is dead: revoked, expired, or reused
-    throw new Error("One refresh failed - user must reconnect");
-  }
-  const next = (await res.json()) as { access_token: string; refresh_token: string; expires_in: number };
-  await saveOneTokens(appUserId, {             // both tokens: rotation
-    accessToken: next.access_token,
-    refreshToken: next.refresh_token,
-    expiresAt: Date.now() + next.expires_in * 1000,
-  });
-  return next.access_token;
-}
-```
-
-Serialize refreshes per user (a lock or single-flight). Two concurrent
-refreshes with the same refresh token trip reuse detection.
-
-## 7 - Calling One with the grant
-
-Every call carries the bearer plus the tenant headers from the token itself.
-On the consent screen the user chose where the grant lives: personal,
-organization or project. One reads the tenant from two headers, and without
-them the call runs in the user's personal space, where an organization grant
-reaches nothing and the app looks disconnected. The access token's JWT
-payload (plain base64url JSON) names the tenant, so send it back:
-
-```ts
-const api = "https://api.withone.ai/v1";
-
-function tenancyHeaders(accessToken: string): Record<string, string> {
-  const payload = JSON.parse(Buffer.from(accessToken.split(".")[1], "base64url").toString());
-  const headers: Record<string, string> = {};
-  if (payload.organization_ids?.[0]) headers["X-One-Organization-Id"] = payload.organization_ids[0];
-  if (payload.project_ids?.[0]) headers["X-One-Project-Id"] = payload.project_ids[0];
-  return headers;                              // empty for a personal grant
-}
-
-async function oneHeaders(appUserId: string) {
-  const token = await getOneAccessToken(appUserId);
-  return { Authorization: `Bearer ${token}`, ...tenancyHeaders(token) };
-}
-```
-
-Three calls cover everything.
-
-What the grant reaches: `GET /v1/connections/reachable`
-
-```ts
-const { rows } = await (await fetch(`${api}/connections/reachable`, { headers: await oneHeaders(appUserId) })).json();
-// rows[]: { key, connector, platform, name, title, image, access }
-// access.policy: "full"
-//             or "methods" + methods: ["GET", ...]                  only these HTTP methods
-//             or "actions" + actions: [{ actionId, title, method }] only these actions
-```
-
-What actions exist: `GET /v1/knowledge?connectionPlatform=<platform>&limit=100&page=N`
-returns rows with `_id`, `title`, `method`, `path`. It is paged; read `pages`.
-The catalog is what is possible; the grant is what is permitted.
-
-Execute: `{method} /v1/passthrough{path}` with two extra headers:
-
-```ts
-await fetch(`${api}/passthrough${action.path}`, {
+const reply = await oneConnect.runAction(userId, {
+  connectionKey: connection.key,
+  actionId: action._id,
   method: action.method,
-  headers: {
-    ...(await oneHeaders(appUserId)),
-    "x-one-connection-key": row.key,
-    "x-one-action-id": action._id,
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify(payload),
+  path: action.path,
+  body: payload,
 });
+// { status, ok, blockedByGrant, data }
 ```
 
-Inside the grant, One forwards the call to the provider and returns its reply.
-Outside the grant, One answers `403` with a `correlationId` and the provider
-is never called. That is the grant working; do not retry it.
+`blockedByGrant` true means One refused the call because it is outside the
+grant; the provider was never called. Do not retry. Any other `/v1` call:
+`oneConnect.fetch(userId, "/connections", init)`.
 
-## 8 - Rules
+`OneConnectError` codes: `not_connected` (no tokens stored), `refresh_failed`
+(One refused the refresh; the tokens were cleared; ask the user to connect
+again), `request_failed` (One answered with an error; `status` carries it).
 
-- `401` from One: the token is expired, revoked or invalid. Clear the stored
-  tokens and show "Reconnect". `403`: the call is outside the grant. Do not
-  retry; the user chose that.
-- Users change or revoke a grant from their One dashboard. The app's next
-  call reflects it. To ask for more, send the user through the button again.
-- Check `state` before touching the code. Never exchange on a mismatch.
-- Store tokens encrypted, keyed by your user. Delete them when the user is
-  deleted and when a refresh fails.
-- The registered redirect URI, the `redirect_uri` in step 4 and the one in
-  step 5 must be the same string.
+## 7 - Rules
 
-## 9 - Done when all of these pass
+- Never put the secret in a client bundle, a log line or an error report.
+- Store tokens encrypted, keyed by the app's user. Delete them when the user
+  is deleted. The client deletes them itself when a refresh fails.
+- The registered redirect URI and `ONE_REDIRECT_URI` must be the same string.
+- Do not build a completion page. The callback redirect is the completion.
+- Do not write the OAuth steps by hand when the package exposes them.
+
+## 8 - Done when all of these pass
 
 1. Button -> One's hosted page -> sign-in code from a real inbox -> choose
-   tools and access -> "You're all set" -> back in the app with `onSuccess`
+   tools and levels -> "You're all set" -> back in the app with `onSuccess`
    fired. Repeat once in a private window.
-2. Stored `expires_in` equals the app's access-token lifetime (for example
-   604800 for 7 days).
-3. A refresh returns a rotated pair; sending the old refresh token again is
-   refused and the app's reconnect path engages.
-4. `GET /v1/connections/reachable` with the bearer and tenant headers lists
-   only the granted connections with their `access`; one call outside the
-   grant returns `403`.
-5. Revoking the app from the user's One dashboard makes the app's next call
-   `401` and the app shows its reconnect prompt.
+2. `listConnections` returns only the granted connections, each with `access`.
+3. `runAction` on an action inside the grant reaches the provider; one outside
+   it returns `blockedByGrant: true`.
+4. Revoking the app from the user's One dashboard makes the next call throw
+   `refresh_failed` or return `401`, and the app shows its reconnect prompt.

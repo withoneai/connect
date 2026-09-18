@@ -1,78 +1,63 @@
+import { normalizePlatforms, parsePlatformsAttribute } from "./platforms";
 import { useOneConnect } from "./useOneConnect";
 import type {
   ConnectButtonHandle,
   ConnectButtonOptions,
+  ConnectButtonState,
   OneConnectHandle,
 } from "./types";
 
 /**
- * Optional pre-built trigger for the connect flow. Entirely opt-in —
- * `useOneConnect` alone with any element the consumer likes remains
- * fully supported. Framework-agnostic like the rest of the SDK: it
- * renders real DOM into a container, so React/Vue/vanilla all mount it
- * the same way. Zero dependencies, zero One URLs — provider icons are
- * passed in by the consumer.
+ * The pre-built trigger for the connect flow. Optional: `useOneConnect`
+ * with any element remains fully supported. Framework-agnostic: it
+ * renders real DOM into a container, so React, Vue, Svelte and plain
+ * HTML all mount it the same way.
  *
- * The button owns the flow wiring: click opens the card, the label
- * turns "Connecting…" while the card is up, and lands on a spring
- * "Connected" state on success (Connect → Connecting → Connected; the
- * verb never changes).
+ * The button owns the flow wiring: a click opens the flow, the label
+ * turns "Connecting" while the tab is away, and lands on "Connected"
+ * when the return carries a success.
  */
 
 const STYLE_ID = "one-connect-button-styles";
 const EASE = "cubic-bezier(.2,.9,.25,1)";
+const MAX_VISIBLE_CHIPS = 3;
+
+/** One's palette (see the Clockwork design system): lime is the brand
+ *  call-to-action, spring is success, carbon is the ink. */
+const LIME = "#CCFF00";
+const SPRING = "#3FE3A5";
+const CARBON = "#0A0C0B";
 
 interface Palette {
-  btnBg: string;
-  btnFg: string;
+  buttonBackground: string;
+  buttonForeground: string;
   surface: string;
-  fg: string;
+  foreground: string;
   muted: string;
   line: string;
   shadow: string;
 }
 
 const LIGHT: Palette = {
-  btnBg: "#0A0C0B",
-  btnFg: "#ffffff",
-  surface: "#ffffff",
-  fg: "#0A0C0B",
+  buttonBackground: CARBON,
+  buttonForeground: "#FFFFFF",
+  surface: "#FFFFFF",
+  foreground: CARBON,
   muted: "#6B7280",
   line: "#D1D5DB",
   shadow: "0 1px 2px rgba(10,12,11,.08), 0 4px 14px rgba(10,12,11,.06)",
 };
 
 const DARK: Palette = {
-  btnBg: "#F2F5F3",
-  btnFg: "#0A0C0B",
+  buttonBackground: "#F2F5F3",
+  buttonForeground: CARBON,
   surface: "#101312",
-  fg: "#F2F5F3",
+  foreground: "#F2F5F3",
   muted: "#8A938E",
   line: "#2A302D",
   shadow: "0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35)",
 };
 
-const LIME = "#CCFF00";
-const SPRING = "#3FE3A5";
-const CARBON = "#0A0C0B";
-
-/** One's connector-asset logo for a platform NAME — so a developer can
- *  pass `{ name: "Stripe" }` with no imageUrl and still get the real
- *  logo. "Google Calendar" → google-calendar.svg. The chip's own onError
- *  falls back to the first letter if a name has no matching asset. */
-function logoUrlFromName(name: string): string {
-  const slug = name
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  return slug
-    ? `https://assets.withone.ai/connectors/${slug}.svg`
-    : "";
-}
-
-/** The One ring mark — same glyph the card footer pairs with the
- *  wordmark. Inline so the SDK stays free of One URLs. */
 const ONE_MARK_SVG =
   '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" style="flex-shrink:0"><circle cx="12" cy="12" r="8.5"/></svg>';
 const ARROW_SVG =
@@ -92,16 +77,17 @@ function ensureStyles(): void {
     `.owcb:focus-visible{outline:2px solid ${SPRING};outline-offset:3px}`,
     ".owcb[disabled]{cursor:default;opacity:.75;transform:none}",
     ".owcb-stack{display:inline-flex;align-items:center;flex-shrink:0}",
-    `.owcb-chip{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;overflow:hidden;margin-left:-7px;transition:margin-left .28s ${EASE};position:relative}`,
+    `.owcb-chip{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;overflow:hidden;margin-left:-7px;transition:margin-left .28s ${EASE};position:relative;background:#FFFFFF}`,
     ".owcb-chip:first-child{margin-left:0}",
     ".owcb-chip img{width:14px;height:14px;display:block;object-fit:contain}",
-    ".owcb-chip.owcb-more{font-family:ui-monospace,monospace;font-size:9px;font-weight:500;letter-spacing:-.02em}",
+    `.owcb-chip.owcb-more{font-family:ui-monospace,monospace;font-size:9px;font-weight:500;letter-spacing:-.02em;color:${CARBON}}`,
+    `.owcb-chip.owcb-letter{font:600 10px ui-monospace,monospace;color:${CARBON}}`,
     ".owcb:hover .owcb-chip{margin-left:-2px}",
     ".owcb:hover .owcb-chip:first-child{margin-left:0}",
     ".owcb-label{white-space:nowrap}",
     `.owcb-arrow{opacity:.5;transition:transform .2s ${EASE},opacity .2s ${EASE}}`,
     ".owcb:hover .owcb-arrow{transform:translateX(2px);opacity:.8}",
-    `.owcb-spinner{width:16px;height:16px;border-radius:50%;border:2px solid currentColor;border-top-color:transparent;opacity:.7;animation:owcb-spin .7s linear infinite}`,
+    ".owcb-spinner{width:16px;height:16px;border-radius:50%;border:2px solid currentColor;border-top-color:transparent;opacity:.7;animation:owcb-spin .7s linear infinite}",
     "@keyframes owcb-spin{to{transform:rotate(360deg)}}",
     ".owcb.owcb-block{display:flex;flex-direction:column;align-items:stretch;width:100%;max-width:420px;text-align:left;padding:16px;border-radius:14px;gap:0}",
     ".owcb-block-top{display:flex;align-items:center;justify-content:space-between;gap:12px}",
@@ -116,12 +102,8 @@ function ensureStyles(): void {
 function buildStack(
   options: ConnectButtonOptions,
   chipRing: string,
-  moreColor: string,
 ): HTMLElement | null {
-  // At most this many provider chips render; everything past it folds
-  // into a single "+N" chip so the button stays clean and uncrowded.
-  const MAX_VISIBLE_CHIPS = 3;
-  const platforms = options.platforms ?? [];
+  const platforms = normalizePlatforms(options.platforms);
   if (platforms.length === 0 && !options.moreCount) return null;
   const stack = document.createElement("span");
   stack.className = "owcb-stack";
@@ -129,29 +111,17 @@ function buildStack(
   for (const platform of platforms.slice(0, MAX_VISIBLE_CHIPS)) {
     const chip = document.createElement("span");
     chip.className = "owcb-chip";
-    chip.style.background = "#ffffff";
+    chip.title = platform.name;
     chip.style.boxShadow = `0 0 0 1.5px ${chipRing}`;
-    // imageUrl is OPTIONAL: a developer may pass just a name. When they
-    // do, derive One's connector-asset logo from the name; if that 404s
-    // (or the passed URL fails), fall back to the name's first letter.
-    const letterFallback = () => {
+    const img = document.createElement("img");
+    img.alt = "";
+    img.src = platform.imageUrl;
+    img.addEventListener("error", () => {
+      img.remove();
+      chip.classList.add("owcb-letter");
       chip.textContent = platform.name.charAt(0).toUpperCase();
-      chip.style.font = "600 10px ui-monospace,monospace";
-      chip.style.color = CARBON;
-    };
-    const src = platform.imageUrl ?? logoUrlFromName(platform.name);
-    if (src) {
-      const img = document.createElement("img");
-      img.alt = "";
-      img.src = src;
-      img.addEventListener("error", () => {
-        img.remove();
-        letterFallback();
-      });
-      chip.appendChild(img);
-    } else {
-      letterFallback();
-    }
+    });
+    chip.appendChild(img);
     stack.appendChild(chip);
   }
   const extra =
@@ -160,9 +130,7 @@ function buildStack(
   if (extra > 0) {
     const more = document.createElement("span");
     more.className = "owcb-chip owcb-more";
-    more.style.background = "#ffffff";
     more.style.boxShadow = `0 0 0 1.5px ${chipRing}`;
-    more.style.color = moreColor;
     more.textContent = `+${extra}`;
     stack.appendChild(more);
   }
@@ -178,23 +146,20 @@ export const mountConnectButton = (
   const palette = options.theme === "dark" ? DARK : LIGHT;
   const variant = options.variant ?? "default";
   const label = options.label ?? "Connect your apps";
+  const connectedLabel = options.connectedLabel ?? "Connected";
 
-  let state: "idle" | "connecting" | "connected" = "idle";
+  let state: ConnectButtonState = "idle";
   let destroyed = false;
 
-  const handle: OneConnectHandle = useOneConnect({
+  const flow: OneConnectHandle = useOneConnect({
     ...options.connect,
     onSuccess: () => {
       setState("connected");
       options.connect.onSuccess?.();
     },
-    onError: (error) => {
+    onError: (message) => {
       setState("idle");
-      options.connect.onError?.(error);
-    },
-    onClose: () => {
-      setState("idle");
-      options.connect.onClose?.();
+      options.connect.onError?.(message);
     },
   });
 
@@ -202,52 +167,54 @@ export const mountConnectButton = (
   button.type = "button";
   button.className = variant === "block" ? "owcb owcb-block" : "owcb";
   button.addEventListener("click", () => {
-    if (state !== "idle" && state !== "connected") return;
+    if (state === "connecting") return;
     setState("connecting");
-    handle.open();
+    flow.open();
   });
+
+  const titleFor = (): string =>
+    state === "connecting"
+      ? "Connecting…"
+      : state === "connected"
+        ? connectedLabel
+        : label;
 
   const paint = () => {
     const accent = variant === "accent";
     const block = variant === "block";
-    const bg = block
+    const background = block
       ? palette.surface
       : accent
         ? (options.accentColor ?? LIME)
-        : palette.btnBg;
-    const fg = block ? palette.fg : accent ? CARBON : palette.btnFg;
-    const chipRing = block ? palette.surface : bg;
-    // The "+N" chip sits on a WHITE background (like the provider chips),
-    // so its text must be dark — never the button's fg, which is white on
-    // the default dark button and would vanish. CARBON matches the
-    // letter-fallback chips.
-    const moreColor = CARBON;
+        : palette.buttonBackground;
+    const foreground = block
+      ? palette.foreground
+      : accent
+        ? CARBON
+        : palette.buttonForeground;
+    const chipRing = block ? palette.surface : background;
 
-    button.style.background = state === "connected" && !block ? SPRING : bg;
-    button.style.color = state === "connected" && !block ? CARBON : fg;
+    button.style.background =
+      state === "connected" && !block ? SPRING : background;
+    button.style.color = state === "connected" && !block ? CARBON : foreground;
     button.style.boxShadow = block
       ? `inset 0 0 0 1px ${palette.line}`
       : state === "connected"
         ? "none"
         : accent
-          ? `0 1px 2px rgba(10,12,11,.1), 0 6px 20px ${(options.accentColor ?? LIME)}38`
+          ? `0 1px 2px rgba(10,12,11,.1), 0 6px 20px ${options.accentColor ?? LIME}38`
           : palette.shadow;
     button.disabled = state === "connecting";
     button.innerHTML = "";
 
-    const stack = buildStack(options, chipRing, moreColor);
+    const stack = buildStack(options, chipRing);
 
     if (block) {
       const top = document.createElement("span");
       top.className = "owcb-block-top";
       const title = document.createElement("span");
       title.className = "owcb-block-title";
-      title.textContent =
-        state === "connecting"
-          ? "Connecting…"
-          : state === "connected"
-            ? (options.connectedLabel ?? "Connected")
-            : label;
+      title.textContent = titleFor();
       top.appendChild(title);
       if (state === "connecting") {
         const spinner = document.createElement("span");
@@ -264,17 +231,14 @@ export const mountConnectButton = (
         sub.textContent = options.description;
         button.appendChild(sub);
       }
-      // Mirrors the card/overlay footer strip: "Secured by" + ring mark
-      // + "one" wordmark, so the button and the surface it opens read as
-      // the same product.
       const foot = document.createElement("span");
       foot.className = "owcb-block-foot";
       foot.style.color = palette.muted;
       foot.style.borderTop = `1px solid ${palette.line}`;
       foot.innerHTML =
         `<span style="font-size:11px;color:${palette.muted}">Secured by</span>` +
-        `<span style="display:inline-flex;color:${palette.fg}">${ONE_MARK_SVG}</span>` +
-        `<span style="font-size:12px;font-weight:600;letter-spacing:-0.02em;color:${palette.fg}">one</span>`;
+        `<span style="display:inline-flex;color:${palette.foreground}">${ONE_MARK_SVG}</span>` +
+        `<span style="font-size:12px;font-weight:600;letter-spacing:-0.02em;color:${palette.foreground}">one</span>`;
       button.appendChild(foot);
       return;
     }
@@ -294,12 +258,7 @@ export const mountConnectButton = (
 
     const text = document.createElement("span");
     text.className = "owcb-label";
-    text.textContent =
-      state === "connecting"
-        ? "Connecting…"
-        : state === "connected"
-          ? (options.connectedLabel ?? "Connected")
-          : label;
+    text.textContent = titleFor();
     button.appendChild(text);
 
     if (state === "idle") {
@@ -310,7 +269,7 @@ export const mountConnectButton = (
     }
   };
 
-  const setState = (next: "idle" | "connecting" | "connected") => {
+  const setState = (next: ConnectButtonState) => {
     if (destroyed) return;
     state = next;
     paint();
@@ -323,26 +282,24 @@ export const mountConnectButton = (
     setState,
     destroy: () => {
       destroyed = true;
-      handle.close({ keepResult: true });
       button.remove();
     },
   };
 };
 
 /**
- * <one-connect-button> — the simple path. One tag, any framework
- * (React, Vue, Svelte, plain HTML): the element wires the whole flow
- * itself from its attributes and manages Connect → Connecting →
- * Connected. Registered automatically in the browser on import;
- * defined inside a function so importing this module on a server
- * (Next.js SSR) never touches HTMLElement.
+ * <one-connect-button>: one tag for any framework. The element wires the
+ * whole flow from its attributes and manages Connect, Connecting and
+ * Connected. Registered automatically in the browser on import; defined
+ * inside a function so importing this module on a server never touches
+ * HTMLElement.
  *
  * Attributes: authorize-url (required), app-theme, label, variant,
- * theme, platforms (JSON array of {name, imageUrl}), more-count,
+ * theme, platforms ("stripe, notion" or a JSON array), more-count,
  * description, accent-color, connected-label.
- * Events: "success" | "error" (detail: message) | "close" — plus
- * matching function properties (onSuccess/onError/onClose) that
- * React 19 / Vue / Svelte set naturally as props.
+ * Events: "success" and "error" (detail: message), plus the matching
+ * onSuccess and onError function properties that React 19, Vue and
+ * Svelte set naturally as props.
  */
 export function registerConnectButton(): void {
   if (typeof window === "undefined" || typeof customElements === "undefined")
@@ -364,8 +321,7 @@ export function registerConnectButton(): void {
     ];
 
     onSuccess: (() => void) | null = null;
-    onError: ((error: string) => void) | null = null;
-    onClose: (() => void) | null = null;
+    onError: ((message: string) => void) | null = null;
 
     private handle: ConnectButtonHandle | null = null;
 
@@ -386,48 +342,28 @@ export function registerConnectButton(): void {
       this.handle?.destroy();
       this.handle = null;
       const authorizeUrl = this.getAttribute("authorize-url");
-      if (!authorizeUrl) return; // nothing to wire yet
-
-      let platforms: ConnectButtonOptions["platforms"];
-      const rawPlatforms = this.getAttribute("platforms");
-      if (rawPlatforms) {
-        try {
-          const parsed = JSON.parse(rawPlatforms) as unknown;
-          if (Array.isArray(parsed)) platforms = parsed;
-        } catch {
-          /* malformed platforms JSON — render without chips */
-        }
-      }
+      if (!authorizeUrl) return;
 
       const moreCountRaw = this.getAttribute("more-count");
-      const moreCount = moreCountRaw ? parseInt(moreCountRaw, 10) : undefined;
+      const moreCount = moreCountRaw ? parseInt(moreCountRaw, 10) : NaN;
 
       this.handle = mountConnectButton(this, {
         connect: {
-          authorize: { url: authorizeUrl },
-          appTheme:
-            (this.getAttribute("app-theme") as "light" | "dark" | null) ??
-            undefined,
+          authorizeUrl,
+          appTheme: attributeAs(this, "app-theme", ["light", "dark"]),
           onSuccess: () => {
             this.onSuccess?.();
             this.dispatchEvent(new CustomEvent("success"));
           },
-          onError: (error) => {
-            this.onError?.(error);
-            this.dispatchEvent(new CustomEvent("error", { detail: error }));
-          },
-          onClose: () => {
-            this.onClose?.();
-            this.dispatchEvent(new CustomEvent("close"));
+          onError: (message) => {
+            this.onError?.(message);
+            this.dispatchEvent(new CustomEvent("error", { detail: message }));
           },
         },
         label: this.getAttribute("label") ?? undefined,
-        variant:
-          (this.getAttribute("variant") as ConnectButtonOptions["variant"]) ??
-          undefined,
-        theme:
-          (this.getAttribute("theme") as "light" | "dark" | null) ?? undefined,
-        platforms,
+        variant: attributeAs(this, "variant", ["default", "accent", "block"]),
+        theme: attributeAs(this, "theme", ["light", "dark"]),
+        platforms: parsePlatformsAttribute(this.getAttribute("platforms")),
         moreCount: Number.isFinite(moreCount) ? moreCount : undefined,
         description: this.getAttribute("description") ?? undefined,
         accentColor: this.getAttribute("accent-color") ?? undefined,
@@ -437,6 +373,19 @@ export function registerConnectButton(): void {
   }
 
   customElements.define("one-connect-button", OneConnectButtonElement);
+}
+
+/** An attribute narrowed to a known set of values; anything else is
+ *  treated as unset rather than passed through. */
+function attributeAs<T extends string>(
+  element: HTMLElement,
+  name: string,
+  allowed: readonly T[],
+): T | undefined {
+  const value = element.getAttribute(name);
+  return value && (allowed as readonly string[]).includes(value)
+    ? (value as T)
+    : undefined;
 }
 
 registerConnectButton();
