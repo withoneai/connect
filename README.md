@@ -87,7 +87,6 @@ import { ConnectButton } from "@withone/connect/react";
 <ConnectButton
   authorizeUrl="/api/one/authorize"
   platforms={["stripe", "google-calendar", "gmail"]}
-  moreCount={274}
   onSuccess={() => refreshAppState()}
   onError={(message) => showBanner(message)}
 />
@@ -113,7 +112,7 @@ import { ConnectButton } from "@withone/connect/vue";
 
 ```html
 <!-- Plain HTML or any other framework: importing the package registers the element -->
-<one-connect-button authorize-url="/api/one/authorize" platforms="stripe, notion" more-count="274"></one-connect-button>
+<one-connect-button authorize-url="/api/one/authorize" platforms="stripe, notion"></one-connect-button>
 <script type="module">
   import "@withone/connect";
   document.querySelector("one-connect-button").addEventListener("success", () => location.reload());
@@ -123,8 +122,7 @@ import { ConnectButton } from "@withone/connect/vue";
 | Prop (attribute) | What it does |
 |---|---|
 | `authorizeUrl` (`authorize-url`) | Your authorize route. Relative paths resolve against the page. Required. |
-| `platforms` | Connector slugs: `["stripe", "google-calendar"]`. Logos and names come from One. To override either, pass `{ slug, name, imageUrl }`. As an attribute: `"stripe, notion"`. |
-| `moreCount` (`more-count`) | The `+N` chip after the first three logos |
+| `platforms` | Connector slugs: `["stripe", "google-calendar"]`. Logos and names come from One. To override either, pass `{ slug, name, imageUrl }`. As an attribute: `"stripe, notion"`. The first three render as logos; anything beyond them becomes a `+N` chip. |
 | `label` | Button text. Default "Connect your apps". |
 | `connectedLabel` (`connected-label`) | Text after a successful return. Default "Connected". |
 | `variant` | `default` pill · `accent` brand-colored pill · `block` card with a description |

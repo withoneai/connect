@@ -21,7 +21,6 @@ export interface ConnectButtonProps {
   theme?: OneConnectTheme;
   /** Connector slugs, or objects to override name or logo. */
   platforms?: ConnectButtonPlatformInput[];
-  moreCount?: number;
   description?: string;
   accentColor?: string;
   connectedLabel?: string;
@@ -47,7 +46,6 @@ export function optionsFromProps(
     variant: props.variant,
     theme: props.theme,
     platforms: props.platforms,
-    moreCount: props.moreCount,
     description: props.description,
     accentColor: props.accentColor,
     connectedLabel: props.connectedLabel,
@@ -63,7 +61,6 @@ export function propsIdentity(props: ConnectButtonProps): string {
     props.variant,
     props.theme,
     props.platforms ?? [],
-    props.moreCount,
     props.description,
     props.accentColor,
     props.connectedLabel,
