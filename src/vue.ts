@@ -44,7 +44,6 @@ export const ConnectButton = defineComponent({
       type: Array as PropType<ConnectButtonPlatformInput[]>,
       default: undefined,
     },
-    moreCount: { type: Number, default: undefined },
     description: { type: String, default: undefined },
     accentColor: { type: String, default: undefined },
     connectedLabel: { type: String, default: undefined },

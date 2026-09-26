@@ -42,8 +42,7 @@ export interface OneConnectReturn {
  * object to override either.
  */
 export type ConnectButtonPlatformInput =
-  | string
-  | { slug?: string; name?: string; imageUrl?: string };
+  string | { slug?: string; name?: string; imageUrl?: string };
 
 /** A normalized chip: what the button actually draws. */
 export interface ConnectButtonPlatform {
@@ -66,11 +65,9 @@ export interface ConnectButtonOptions {
   variant?: ConnectButtonVariant;
   /** Matches the host page, not One's page (that is connect.appTheme). */
   theme?: OneConnectTheme;
-  /** Connector chips. The first three render; the rest fold into the
-   *  "+N" chip together with moreCount. */
+  /** Connector chips. The first three render; the rest fold into a "+N"
+   *  chip, so that count only ever describes this list. */
   platforms?: ConnectButtonPlatformInput[];
-  /** Extra count for the "+N" chip, e.g. 274 for "the whole catalog". */
-  moreCount?: number;
   /** Sub-line on the block variant, shown while idle. */
   description?: string;
   /** Fill of the accent variant; One's lime when omitted. */
