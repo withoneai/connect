@@ -167,6 +167,12 @@ works under a strict CSP. Allow `https://assets.withone.ai` in `img-src` for
 the logos. Style it with `--one-connect-font`, `--one-connect-radius` and
 `::part(button)`; do not wrap it in extra styling divs.
 
+React and Vue render the host themselves, `<span class="one-connect">`, and
+React's `className` / `style` land on it. The button never writes to its
+host, so server-rendered pages (Next.js, Nuxt) hydrate without a mismatch,
+including `<one-connect-button>`. `fullWidth` fills whatever container holds
+the button, flex rows included. Needs @withone/connect 0.12.1 or later.
+
 The flow is a same-tab redirect. The outcome is read once per page load:
 every button shows it, and the callbacks fire once, on the first button
 still mounted.
@@ -193,8 +199,13 @@ const reply = await oneConnect.runAction(userId, {
 // { status, ok, blockedByGrant, data }
 ```
 
-`blockedByGrant` true means One refused the call because it is outside the
-grant; the provider was never called. Do not retry. Any other `/v1` call:
+A call outside the grant comes back `status: 403, ok: false`, and the
+provider was never called. Do not retry it; the user chose that. Treat any
+403 from `runAction` that way. `blockedByGrant` is meant to say "One refused
+this, not the provider", but today One answers a grant refusal with a plain
+`403 Forbidden` body that the SDK cannot tell apart from a provider's 403, so
+`blockedByGrant` stays `false` (tracked; fix pending in the backend and SDK).
+Do not branch on it yet. Any other `/v1` call:
 `oneConnect.fetch(userId, "/connections", init)`.
 
 `OneConnectError` codes: `not_connected` (no tokens stored), `refresh_failed`
@@ -206,6 +217,15 @@ tokens are KEPT, so retry later rather than asking the user to reconnect).
 To ask users for more tools later, edit the app's permission set in the
 dashboard. The next Connect shows only the new tools as "needs one more
 connection" and the callback stores the new pair; no code change.
+
+The order of tools on One's "Connect and set access" step is the order of the
+rules in the permission set: the order they were ticked when the ask was
+built, not alphabetical. To put a tool first, add it first. Reordering an
+existing ask means sending the rules in the new order with
+`PATCH /v1/oauth-clients/{clientId}/permission-sets/{id}`, which replaces the
+list. On a reconnect, tools the user has not granted yet come first and the
+ones they already granted sit in a collapsed group below; both keep that order.
+The button's `platforms` prop only changes the logos on the button.
 
 ## 7 - Rules
 
@@ -225,6 +245,7 @@ connection" and the callback stores the new pair; no code change.
    fired. Repeat once in a private window.
 2. `listConnections` returns only the granted connections, each with `access`.
 3. `runAction` on an action inside the grant reaches the provider; one outside
-   it returns `blockedByGrant: true`.
+   it returns `status: 403` without reaching the provider (for example a
+   `POST` on a read-only connection).
 4. Revoking the app from the user's One dashboard makes the next call throw
    `refresh_failed` or return `401`, and the app shows its reconnect prompt.

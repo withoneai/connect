@@ -266,7 +266,7 @@ const reply = await oneConnect.runAction(userId, {
 // { status, ok, blockedByGrant, data }
 ```
 
-`blockedByGrant` is true when One refused the call because it is outside what the user granted. The provider was never called. Do not retry; the user chose that. Anything else on One's `/v1` API: `oneConnect.fetch(userId, "/connections", init)` adds the bearer and the tenancy headers for you.
+A call outside what the user granted comes back as `status: 403`, and the provider is never called. Don't retry it: the user chose that. `blockedByGrant` is meant to mark One's own refusals apart from a provider's 403. Today, though, One answers a grant refusal with a plain `403 Forbidden` body the SDK can't recognise, so `blockedByGrant` is always `false` until the backend sends a machine-readable refusal. Treat any 403 from `runAction` as refused for now. Anything else on One's `/v1` API: `oneConnect.fetch(userId, "/connections", init)` adds the bearer and the tenancy headers for you.
 
 Other calls on the client: `isConnected`, `getAccessToken`, `getTokens`, `refreshTokens`, `refreshIfExpiring`, `disconnect`.
 
