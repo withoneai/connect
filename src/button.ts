@@ -31,7 +31,8 @@ const WHITE = "#FFFFFF";
 
 const STYLES = `
 :host{display:inline-block;vertical-align:middle;max-width:100%}
-:host([data-full-width]),:host([data-variant="block"]){display:block}
+:host([data-full-width]),:host([full-width]:not([full-width="false"])),
+:host([data-variant="block"]),:host([variant="block"]){display:block;width:100%}
 .b{all:unset;box-sizing:border-box;position:relative;display:inline-flex;align-items:center;gap:var(--gap);
   max-width:100%;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;
   font-family:var(--one-connect-font,inherit);font-size:var(--fs);font-weight:500;line-height:1.2;letter-spacing:-.01em;
@@ -234,8 +235,11 @@ const flowOptions = (
 });
 
 /**
- * Draws the button inside `host`'s shadow root. `host` must not have a
- * shadow root yet; `mountConnectButton` creates one for you.
+ * Draws the button inside the shadow root of an element you render, for
+ * wrappers that own their host (React, Vue). Nothing is written to the
+ * host's own attributes. For the layout rules, give the host
+ * `data-variant="<variant>"` and, for fullWidth, `data-full-width`;
+ * `mountConnectButton` does that for you.
  */
 export function renderConnectButton(
   host: HTMLElement,
@@ -307,18 +311,21 @@ export function renderConnectButton(
           ? (props.connectedLabel ?? "Connected")
           : (props.label ?? "Connect your apps");
 
-    // Colour props travel as custom properties on the host, set through
-    // the CSSOM: allowed under a strict CSP, unlike a style attribute.
+    // Colour props travel as custom properties on the button inside the
+    // shadow root, set through the CSSOM: allowed under a strict CSP, and
+    // never written to the host, whose attributes belong to whoever
+    // rendered it (a server-rendered page must hydrate unchanged).
     if (variant === "accent") {
       const accent = props.accentColor?.trim() || LIME;
-      host.style.setProperty("--one-connect-accent", accent);
-      host.style.setProperty("--one-connect-accent-fg", readableTextOn(accent));
+      button.style.setProperty("--one-connect-accent", accent);
+      button.style.setProperty(
+        "--one-connect-accent-fg",
+        readableTextOn(accent),
+      );
     } else {
-      host.style.removeProperty("--one-connect-accent");
-      host.style.removeProperty("--one-connect-accent-fg");
+      button.style.removeProperty("--one-connect-accent");
+      button.style.removeProperty("--one-connect-accent-fg");
     }
-    host.toggleAttribute("data-full-width", Boolean(props.fullWidth));
-    host.setAttribute("data-variant", variant);
 
     button.dataset.variant = variant;
     button.dataset.size = props.size ?? "md";
@@ -408,10 +415,18 @@ export function mountConnectButton(
 ): ConnectButtonHandle {
   const host = document.createElement("span");
   host.className = "one-connect";
+  const layout = (next: ConnectButtonProps) => {
+    host.setAttribute("data-variant", next.variant ?? "default");
+    host.toggleAttribute("data-full-width", Boolean(next.fullWidth));
+  };
+  layout(props);
   container.appendChild(host);
   const handle = renderConnectButton(host, props);
   return {
-    update: handle.update,
+    update: (next) => {
+      layout(next);
+      handle.update(next);
+    },
     destroy: () => {
       handle.destroy();
       host.remove();

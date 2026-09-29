@@ -120,7 +120,7 @@ import { ConnectButton } from "@withone/connect/vue";
 </script>
 ```
 
-Every surface takes the same props. Attributes are the kebab-case names, and `connected`, `disabled` and `full-width` are boolean attributes.
+Every surface takes the same props. Attributes are the kebab-case names, and `connected`, `disabled` and `full-width` are boolean attributes. The React and Vue components render the host element themselves, `<span class="one-connect">`, and React's `className` and `style` apply to it. The button inside never changes the host's attributes, so server-rendered pages hydrate without a mismatch, and `fullWidth` fills whatever container you put the button in, flex rows included.
 
 | Prop (attribute) | What it does |
 |---|---|

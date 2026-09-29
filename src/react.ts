@@ -10,8 +10,8 @@ import type { CSSProperties, ReactElement } from "react";
 
 import {
   createConnectFlow,
-  mountConnectButton,
   readConnectReturn,
+  renderConnectButton,
   type ConnectButtonHandle,
   type ConnectButtonProps as ConnectButtonCoreProps,
   type ConnectFailureCode,
@@ -20,7 +20,7 @@ import {
 } from "@withone/connect";
 
 export interface ConnectButtonProps extends ConnectButtonCoreProps {
-  /** On the wrapper element around the button. */
+  /** On the host element, `<span class="one-connect">`. */
   className?: string;
   style?: CSSProperties;
 }
@@ -45,7 +45,7 @@ const visualKey = (props: ConnectButtonCoreProps): string =>
   ]);
 
 export function ConnectButton(props: ConnectButtonProps): ReactElement {
-  const containerRef = useRef<HTMLDivElement | null>(null);
+  const hostRef = useRef<HTMLSpanElement | null>(null);
   const handleRef = useRef<ConnectButtonHandle | null>(null);
   const keyRef = useRef<string>("");
   const latest = useRef(props);
@@ -59,9 +59,9 @@ export function ConnectButton(props: ConnectButtonProps): ReactElement {
   });
 
   useEffect(() => {
-    if (!containerRef.current) return;
-    handleRef.current = mountConnectButton(
-      containerRef.current,
+    if (!hostRef.current) return;
+    handleRef.current = renderConnectButton(
+      hostRef.current,
       withLatestCallbacks(),
     );
     keyRef.current = visualKey(latest.current);
@@ -81,10 +81,17 @@ export function ConnectButton(props: ConnectButtonProps): ReactElement {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
-  return createElement("div", {
-    ref: containerRef,
-    className: props.className,
+  // The host is rendered here, layout attributes included, so the server
+  // HTML and the hydrated element agree; the button lives in its shadow
+  // root, which React never sees.
+  return createElement("span", {
+    ref: hostRef,
+    className: props.className
+      ? `one-connect ${props.className}`
+      : "one-connect",
     style: props.style,
+    "data-variant": props.variant ?? "default",
+    "data-full-width": props.fullWidth ? "" : undefined,
   });
 }
 
