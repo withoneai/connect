@@ -16,6 +16,14 @@
  *   const reply = await oneConnect.runAction(userId, { connectionKey, actionId, method, path });
  *
  * The Next.js and Node adapters turn the first two into route handlers.
+ *
+ * Refresh. One's access token lives an hour by default, its refresh token 30
+ * days; every refresh rotates both, and One treats a second use of a
+ * rotated refresh token as theft and revokes the whole grant. So the
+ * client refreshes one user at a time (in this process always, across
+ * processes through `tokenStore.withLock`), re-reads the store before
+ * spending a refresh token, clears tokens only when One declares the
+ * grant dead, and never lets a failing old pair delete a newer one.
  */
 import { DEFAULT_ONE_API_URL, RETURN_MESSAGE_PARAM, RETURN_STATUS_PARAM } from "../constants";
 import {
@@ -24,6 +32,7 @@ import {
   createPkceVerifier,
   createState,
   pkceChallenge,
+  refreshTokenExpiresAt,
   tenancyHeaders,
   txCookie,
   txCookieName,
@@ -36,6 +45,7 @@ import {
   type OneConnectTokens,
   type PlatformAction,
   type ReachableConnection,
+  type RefreshIfExpiringOptions,
   type RunActionInput,
   type RunActionResult,
   type StartAuthorizationInput,
@@ -43,7 +53,7 @@ import {
 } from "./types";
 
 export * from "./types";
-export { tenancyHeaders, tokenScopes } from "./oauth";
+export { refreshTokenExpiresAt, tenancyHeaders, tokenScopes } from "./oauth";
 
 /** Refresh this long before expiry, so a call never races the clock. */
 const REFRESH_MARGIN_MS = 60_000;
@@ -55,6 +65,16 @@ interface TokenResponse {
   refresh_token: string;
   expires_in: number;
 }
+
+/** What One's token endpoint answered. A network failure throws instead. */
+type TokenAnswer =
+  | { ok: true; body: TokenResponse }
+  | { ok: false; status: number; error?: string };
+
+/** The one refusal that means the grant is gone for good: revoked by the
+ *  user, expired, or burned by a reused refresh token (RFC 6749 §5.2). */
+const isDeadGrant = (answer: TokenAnswer): boolean =>
+  !answer.ok && answer.status === 400 && answer.error === "invalid_grant";
 
 export interface OneConnect {
   /** The authorize leg: where to send the browser and the cookie to set. */
@@ -73,8 +93,19 @@ export interface OneConnect {
   getAccessToken: (userId: string) => Promise<string>;
   /** The stored tokens, for display. Null when not connected. */
   getTokens: (userId: string) => Promise<OneConnectTokens | null>;
-  /** Forces a refresh now. */
+  /** Refreshes now and returns the new pair. When another caller rotated
+   *  the pair a moment earlier, returns that pair instead of rotating it
+   *  a second time. */
   refreshTokens: (userId: string) => Promise<OneConnectTokens>;
+  /** Refreshes only when the access token or the refresh token expires
+   *  within `withinMs`, and returns the pair that is current afterwards.
+   *  For background jobs: a frequent run keeps access tokens warm, and a
+   *  daily run with a window of days keeps idle users' 30-day refresh
+   *  tokens from running out. */
+  refreshIfExpiring: (
+    userId: string,
+    options?: RefreshIfExpiringOptions,
+  ) => Promise<OneConnectTokens>;
   /** Drops the app's copy of the tokens. The user revokes the grant
    *  itself from their One dashboard. */
   disconnect: (userId: string) => Promise<void>;
@@ -113,7 +144,7 @@ export function createOneConnect(config: OneConnectServerConfig): OneConnect {
     return url.toString();
   };
 
-  const exchange = async (body: URLSearchParams): Promise<TokenResponse> => {
+  const postToken = async (body: URLSearchParams): Promise<TokenAnswer> => {
     const response = await fetch(tokenUrl, {
       method: "POST",
       headers: {
@@ -122,14 +153,43 @@ export function createOneConnect(config: OneConnectServerConfig): OneConnect {
       },
       body,
     });
-    if (!response.ok) {
+    if (response.ok)
+      return { ok: true, body: (await response.json()) as TokenResponse };
+    let error: string | undefined;
+    try {
+      const refusal = (await response.json()) as { error?: unknown };
+      if (typeof refusal.error === "string") error = refusal.error;
+    } catch {
+      /* not an OAuth error body: a proxy page or a server error */
+    }
+    return { ok: false, status: response.status, error };
+  };
+
+  const exchange = async (body: URLSearchParams): Promise<TokenResponse> => {
+    const answer = await postToken(body);
+    if (!answer.ok) {
       throw new OneConnectError(
         "request_failed",
-        `One refused the token request (HTTP ${response.status}).`,
-        response.status,
+        `One refused the token request (HTTP ${answer.status}).`,
+        answer.status,
       );
     }
-    return (await response.json()) as TokenResponse;
+    return answer.body;
+  };
+
+  /** Runs `run` under the app's cross-process lock for this user, when
+   *  the store has one. */
+  const locked = <T>(userId: string, run: () => Promise<T>): Promise<T> =>
+    tokenStore.withLock ? tokenStore.withLock(userId, run) : run();
+
+  /** Whether either token of the pair stops working within `withinMs`. */
+  const expiresWithin = (tokens: OneConnectTokens, withinMs: number): boolean => {
+    const horizon = Date.now() + withinMs;
+    const refreshExpiresAt = refreshTokenExpiresAt(tokens.refreshToken);
+    return (
+      tokens.expiresAt <= horizon ||
+      (refreshExpiresAt !== null && refreshExpiresAt <= horizon)
+    );
   };
 
   const toTokens = (response: TokenResponse): OneConnectTokens => ({
@@ -200,7 +260,9 @@ export function createOneConnect(config: OneConnectServerConfig): OneConnect {
           }),
         ),
       );
-      await tokenStore.saveTokens(input.userId, tokens);
+      // Under the lock, so a refresh in flight on another server cannot
+      // interleave with this save.
+      await locked(input.userId, () => tokenStore.saveTokens(input.userId, tokens));
     } catch (error) {
       const status = error instanceof OneConnectError ? error.status : undefined;
       return fail(
@@ -218,50 +280,122 @@ export function createOneConnect(config: OneConnectServerConfig): OneConnect {
     };
   };
 
-  const refreshTokens = (userId: string): Promise<OneConnectTokens> => {
-    const inFlight = refreshing.get(userId);
-    if (inFlight) return inFlight;
-    const job = (async () => {
-      const current = await tokenStore.loadTokens(userId);
-      if (!current)
-        throw new OneConnectError("not_connected", "This user is not connected.");
-      try {
-        const next = toTokens(
-          await exchange(
-            new URLSearchParams({
-              grant_type: "refresh_token",
-              refresh_token: current.refreshToken,
-            }),
-          ),
-        );
-        // Both tokens: One rotates the pair on every refresh.
-        await tokenStore.saveTokens(userId, next);
-        return next;
-      } catch (error) {
-        // The family is dead: revoked, expired or reused. Keeping the
-        // pair would only fail again; the user has to reconnect.
-        await tokenStore.clearTokens(userId);
-        const status = error instanceof OneConnectError ? error.status : undefined;
-        throw new OneConnectError(
-          "refresh_failed",
-          "The connection to One has expired or was revoked. Ask the user to connect again.",
-          status,
-        );
-      } finally {
-        refreshing.delete(userId);
-      }
-    })();
-    refreshing.set(userId, job);
-    return job;
+  const notConnected = () =>
+    new OneConnectError("not_connected", "This user is not connected.");
+
+  /**
+   * The grant behind `failed` is dead. Clears it, unless a newer pair
+   * landed while it was failing (a reconnect's callback, another
+   * server's refresh): that pair is returned instead, because the user
+   * did nothing wrong and deleting it would disconnect them.
+   */
+  const retire = async (
+    userId: string,
+    failed: OneConnectTokens,
+    status?: number,
+  ): Promise<OneConnectTokens> => {
+    const latest = await tokenStore.loadTokens(userId);
+    if (latest && latest.refreshToken !== failed.refreshToken) return latest;
+    await tokenStore.clearTokens(userId, failed);
+    throw new OneConnectError(
+      "refresh_failed",
+      "The connection to One has expired or was revoked. Ask the user to connect again.",
+      status,
+    );
   };
 
-  const getAccessToken = async (userId: string): Promise<string> => {
-    const tokens = await tokenStore.loadTokens(userId);
-    if (!tokens)
-      throw new OneConnectError("not_connected", "This user is not connected.");
-    if (Date.now() < tokens.expiresAt - REFRESH_MARGIN_MS) return tokens.accessToken;
-    return (await refreshTokens(userId)).accessToken;
+  /**
+   * The one place a refresh token is spent. Under the app's lock it
+   * re-reads the store, and refreshes only when `stillNeeded` says the
+   * stored pair still needs it: another process may have refreshed while
+   * this one waited, and spending the same refresh token twice makes One
+   * revoke the grant.
+   */
+  const refreshUnderLock = (
+    userId: string,
+    stillNeeded: (current: OneConnectTokens) => boolean,
+  ): Promise<OneConnectTokens> =>
+    locked(userId, async () => {
+      const current = await tokenStore.loadTokens(userId);
+      if (!current) throw notConnected();
+      if (!stillNeeded(current)) return current;
+
+      // An expired refresh token cannot work, and One answers one with a
+      // server error rather than invalid_grant, so settle it here.
+      const refreshExpiresAt = refreshTokenExpiresAt(current.refreshToken);
+      if (refreshExpiresAt !== null && refreshExpiresAt <= Date.now())
+        return retire(userId, current);
+
+      let answer: TokenAnswer;
+      try {
+        answer = await postToken(
+          new URLSearchParams({
+            grant_type: "refresh_token",
+            refresh_token: current.refreshToken,
+          }),
+        );
+      } catch {
+        throw new OneConnectError(
+          "request_failed",
+          "One could not be reached to refresh the connection. The tokens were kept; try again.",
+        );
+      }
+
+      if (answer.ok) {
+        // Both tokens: One rotates the pair on every refresh.
+        const next = toTokens(answer.body);
+        await tokenStore.saveTokens(userId, next);
+        return next;
+      }
+      if (isDeadGrant(answer)) return retire(userId, current, answer.status);
+      // A server error, a rate limit, a misconfigured secret: nothing says
+      // the grant is gone, so keep the tokens and let the caller retry.
+      throw new OneConnectError(
+        "request_failed",
+        `One could not refresh the connection (HTTP ${answer.status}). The tokens were kept; try again.`,
+        answer.status,
+      );
+    });
+
+  /** One refresh per user in this process; concurrent callers share it. */
+  const singleFlight = (
+    userId: string,
+    job: () => Promise<OneConnectTokens>,
+  ): Promise<OneConnectTokens> => {
+    const inFlight = refreshing.get(userId);
+    if (inFlight) return inFlight;
+    const running = job().finally(() => refreshing.delete(userId));
+    refreshing.set(userId, running);
+    return running;
   };
+
+  const refreshTokens = (userId: string): Promise<OneConnectTokens> =>
+    singleFlight(userId, async () => {
+      const before = await tokenStore.loadTokens(userId);
+      if (!before) throw notConnected();
+      // Rotate the pair seen now; a pair someone else rotated since is
+      // already fresh.
+      return refreshUnderLock(
+        userId,
+        (current) => current.refreshToken === before.refreshToken,
+      );
+    });
+
+  const refreshIfExpiring = async (
+    userId: string,
+    options: RefreshIfExpiringOptions = {},
+  ): Promise<OneConnectTokens> => {
+    const withinMs = options.withinMs ?? REFRESH_MARGIN_MS;
+    const tokens = await tokenStore.loadTokens(userId);
+    if (!tokens) throw notConnected();
+    if (!expiresWithin(tokens, withinMs)) return tokens;
+    return singleFlight(userId, () =>
+      refreshUnderLock(userId, (current) => expiresWithin(current, withinMs)),
+    );
+  };
+
+  const getAccessToken = async (userId: string): Promise<string> =>
+    (await refreshIfExpiring(userId)).accessToken;
 
   const oneFetch = async (
     userId: string,
@@ -373,6 +507,7 @@ export function createOneConnect(config: OneConnectServerConfig): OneConnect {
     getAccessToken,
     getTokens: (userId) => tokenStore.loadTokens(userId),
     refreshTokens,
+    refreshIfExpiring,
     disconnect: (userId) => tokenStore.clearTokens(userId),
     listConnections,
     listActions,

@@ -13,13 +13,45 @@ export interface OneConnectTokens {
 
 /**
  * Where the app keeps each user's tokens: its database, a cache, an
- * encrypted cookie. The SDK never sees a token outside these three
- * calls. `userId` is the app's own id for its user.
+ * encrypted cookie. The SDK never sees a token outside these calls.
+ * `userId` is the app's own id for its user.
  */
 export interface OneConnectTokenStore {
   saveTokens: (userId: string, tokens: OneConnectTokens) => Promise<void>;
   loadTokens: (userId: string) => Promise<OneConnectTokens | null>;
-  clearTokens: (userId: string) => Promise<void>;
+  /**
+   * Deletes the user's tokens.
+   *
+   * `failed` is set when the SDK clears because One declared that pair
+   * dead. Delete only when the stored refresh token is still
+   * `failed.refreshToken`: a newer pair saved in the meantime (a
+   * reconnect, another server's refresh) must survive. `failed` is
+   * undefined for `disconnect`, which always deletes.
+   */
+  clearTokens: (userId: string, failed?: OneConnectTokens) => Promise<void>;
+  /**
+   * Runs `run` while holding a lock on this user that every server and
+   * worker of the app shares: a Postgres advisory lock, a Redis lock, a
+   * row lock. The SDK loads, refreshes and saves the user's tokens
+   * inside it.
+   *
+   * Required when the app runs more than one process (serverless,
+   * several instances, a background worker). One rotates the refresh
+   * token on every use and treats a second use of the old one as theft,
+   * revoking the whole grant, so two processes refreshing the same user
+   * at once disconnect that user. Without a lock the SDK can only stop
+   * that inside a single process.
+   *
+   * Hold it for at least 60 seconds before any timeout: it spans one
+   * call to One's token endpoint.
+   */
+  withLock?: <T>(userId: string, run: () => Promise<T>) => Promise<T>;
+}
+
+export interface RefreshIfExpiringOptions {
+  /** Refresh when the access token or the refresh token expires within
+   *  this many milliseconds. One minute when omitted. */
+  withinMs?: number;
 }
 
 export interface OneConnectServerConfig {
@@ -137,6 +169,13 @@ export interface RunActionResult {
   data: unknown;
 }
 
+/**
+ * - `not_connected`: no tokens are stored for this user.
+ * - `refresh_failed`: One declared the grant dead (revoked, expired or
+ *   reused). The tokens were cleared; ask the user to connect again.
+ * - `request_failed`: One answered with an error or could not be
+ *   reached. During a refresh the tokens are kept, so retry later.
+ */
 export type OneConnectErrorCode =
   | "not_connected"
   | "refresh_failed"

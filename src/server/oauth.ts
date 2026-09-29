@@ -85,6 +85,22 @@ export function tenancyHeaders(accessToken: string): Record<string, string> {
   }
 }
 
+/** When a refresh token stops working, in epoch milliseconds, from its
+ *  `exp` claim. Null when the token carries no readable expiry, in which
+ *  case only One can say whether it still works. */
+export function refreshTokenExpiresAt(refreshToken: string): number | null {
+  try {
+    const payload = JSON.parse(
+      Buffer.from(refreshToken.split(".")[1], "base64url").toString(),
+    ) as { exp?: unknown };
+    return typeof payload.exp === "number" && Number.isFinite(payload.exp)
+      ? payload.exp * 1000
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 /** The scopes the token was granted, from its claims. Display only. */
 export function tokenScopes(accessToken: string): string[] {
   try {

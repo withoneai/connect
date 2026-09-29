@@ -166,6 +166,8 @@ export const oneConnect = createOneConnect({
     saveTokens: (userId, tokens) => db.oneTokens.upsert(userId, tokens),
     loadTokens: (userId) => db.oneTokens.find(userId),
     clearTokens: (userId) => db.oneTokens.delete(userId),
+    // Required when you run more than one server or a worker. See "Tokens" below.
+    withLock: (userId, run) => db.withUserLock(userId, run),
   },
 });
 ```
@@ -207,7 +209,7 @@ What the routes do for you: mint `state` and a PKCE verifier, keep them in a per
 
 ## 4 · Using the grant
 
-Everything runs on your server through the same client. Tokens are refreshed for you before they expire; a refresh One refuses clears the stored tokens and throws `OneConnectError` with code `refresh_failed`, which means "ask the user to connect again".
+Everything runs on your server through the same client. Every call refreshes the tokens first when they are about to expire (see [Tokens](#5--tokens-storing-refreshing-keeping-alive)).
 
 ```ts
 // What the grant reaches, each connection with its access
@@ -231,7 +233,88 @@ const reply = await oneConnect.runAction(userId, {
 
 `blockedByGrant` is true when One refused the call because it is outside what the user granted. The provider was never called. Do not retry; the user chose that. Anything else on One's `/v1` API: `oneConnect.fetch(userId, "/connections", init)` adds the bearer and the tenancy headers for you.
 
-Other calls on the client: `isConnected`, `getAccessToken`, `getTokens`, `refreshTokens`, `disconnect`.
+Other calls on the client: `isConnected`, `getAccessToken`, `getTokens`, `refreshTokens`, `refreshIfExpiring`, `disconnect`.
+
+## 5 · Tokens: storing, refreshing, keeping alive
+
+Your app owns the tokens. The SDK never stores anything itself: it calls your `tokenStore`, and it refreshes through it.
+
+**What One issues**
+
+| | Lifetime | On refresh |
+|---|---|---|
+| Access token | The lifetime set on your app: 1 hour by default, or 7, 30, 90 or 365 days | Replaced |
+| Refresh token | 30 days | Replaced, with a fresh 30 days |
+
+Every refresh returns a **new pair** and retires the old refresh token. If the old refresh token is ever used again, One treats it as stolen and **revokes the whole grant**. The user then has to connect again.
+
+**Store them in your database, encrypted, keyed by your user id**
+
+```sql
+create table one_tokens (
+  user_id       text primary key,
+  access_token  text not null,          -- encrypted
+  refresh_token text not null,          -- encrypted
+  expires_at    timestamptz not null    -- tokens.expiresAt
+);
+```
+
+**Give the store a lock when more than one process can refresh**
+
+Serverless functions, several instances, a background worker: any two of them can decide to refresh the same user at the same moment.
+
+```
+without a lock                              with withLock
+web ──refresh(R1)──► One: here is R2         web ──lock──refresh(R1)──► R2 ──save──unlock
+worker ─refresh(R1)─► One: R1 reused!        worker ──wait─────────────────────────────┐
+                      revoke everything ✗                   reload: R2 is fresh, use it ✓
+```
+
+The SDK takes the lock around every refresh and around the save in the callback. It re-reads the store inside the lock, so the process that waited uses the pair the first one saved instead of spending the old refresh token again. The SDK never takes the lock twice for the same call. Postgres, with a transaction-scoped advisory lock:
+
+```ts
+withLock: async (userId, run) => {
+  const client = await pool.connect();
+  try {
+    await client.query("begin");
+    await client.query("select pg_advisory_xact_lock(hashtextextended($1, 0))", [`one-connect:${userId}`]);
+    return await run();
+  } finally {
+    await client.query("commit").catch(() => {});
+    client.release();
+  }
+},
+```
+
+A single long-running process can leave `withLock` out; the SDK already runs one refresh per user at a time inside a process. If your lock has a timeout, make it at least 60 seconds, because it spans one call to One.
+
+**Refreshing ahead of time**
+
+`getAccessToken`, `runAction`, `listConnections` and `fetch` refresh on their own when the access token has less than a minute left. For work that runs in the background, refresh ahead with `refreshIfExpiring`. It refreshes only when the access token **or** the refresh token expires within the window, and otherwise returns the stored pair without calling One.
+
+```ts
+// Every 10 minutes: users whose access token expires in the next 15 minutes
+// (your table knows expires_at).
+await oneConnect.refreshIfExpiring(userId, { withinMs: 15 * 60_000 });
+
+// Once a day, for every connected user: renews refresh tokens before their
+// 30 days run out, so a user who has not been active stays connected.
+await oneConnect.refreshIfExpiring(userId, { withinMs: 7 * 24 * 3_600_000 });
+```
+
+**When a refresh fails**
+
+| `OneConnectError.code` | What happened | Tokens | What to do |
+|---|---|---|---|
+| `refresh_failed` | One declared the grant dead: the user revoked it, the refresh token expired, or it was reused | Cleared | Show "Reconnect", which runs Connect again |
+| `request_failed` | One could not be reached, answered with a server error, or refused your client credentials | **Kept** | Retry later. Check `status` for a 401, which means your client secret is wrong. |
+| `not_connected` | No tokens are stored for this user | — | Show "Connect" |
+
+The SDK clears tokens only when One says the grant is dead (`invalid_grant`), or when the refresh token's own expiry has passed. It calls `clearTokens(userId, failed)` with the pair that failed. Just before that, it re-reads the store: if a newer pair has landed (the user reconnected while an old refresh was failing), it keeps and returns the newer pair. To make that check atomic, delete only when the stored refresh token is still `failed.refreshToken`. `disconnect(userId)` calls `clearTokens(userId)` without `failed`, and always deletes.
+
+**Asking for more tools later**
+
+Edit the app's permission set in the dashboard (Developers → Connect). The next time a user presses the button, One shows them the new tools as "{your app} needs one more connection", with what they already granted pre-selected. Authorizing replaces the user's grant and old tokens at once, and the callback saves the new pair.
 
 ## What your users see
 
@@ -243,7 +326,7 @@ In *your* dashboard the app lists every user who said yes, what each one granted
 
 - The client secret is used on your server only, for the code exchange and refresh, over HTTP Basic.
 - The authorization code is single use and expires ten minutes after consent.
-- Refresh tokens rotate on every use. Reusing an old one revokes the whole family, which is why the client serialises refreshes per user.
+- Refresh tokens rotate on every use. Reusing an old one revokes the whole family, which is why the client refreshes one user at a time: inside a process on its own, and across processes through `tokenStore.withLock`.
 - The browser half of this package never sees a token. It navigates and reads one query parameter.
 
 ## Development

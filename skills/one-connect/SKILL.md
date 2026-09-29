@@ -72,7 +72,9 @@ export const oneConnect = createOneConnect({
   tokenStore: {
     saveTokens: (userId, tokens) => /* write to this app's database, encrypted, keyed by its user */,
     loadTokens: (userId) => /* read; null when the user never connected */,
-    clearTokens: (userId) => /* delete */,
+    clearTokens: (userId, failed) => /* delete; when `failed` is set, only if the stored refreshToken is still failed.refreshToken */,
+    // Required when the app runs more than one process (serverless, several instances, a worker):
+    withLock: (userId, run) => /* run() while holding a per-user lock all processes share, e.g. pg_advisory_xact_lock */,
   },
 });
 ```
@@ -80,6 +82,14 @@ export const oneConnect = createOneConnect({
 `tokens` is `{ accessToken, refreshToken, expiresAt }`. Use the app's own user
 id as the key. Implement the store on whatever the app already uses; do not
 add a database for it.
+
+One rotates the refresh token on every refresh and revokes the whole grant if
+an old one is used again. So when two processes could refresh the same user,
+`withLock` is not optional: without it, a web request and a worker refreshing
+together disconnect the user. The README's "Tokens" section has a Postgres
+version. For background work, call `refreshIfExpiring(userId, { withinMs })`:
+every few minutes with a window of minutes to keep access tokens warm, and
+once a day with a window of days so idle users' 30-day refresh tokens renew.
 
 ## 4 - The two routes
 
@@ -170,14 +180,22 @@ grant; the provider was never called. Do not retry. Any other `/v1` call:
 `oneConnect.fetch(userId, "/connections", init)`.
 
 `OneConnectError` codes: `not_connected` (no tokens stored), `refresh_failed`
-(One refused the refresh; the tokens were cleared; ask the user to connect
-again), `request_failed` (One answered with an error; `status` carries it).
+(One declared the grant dead: revoked, expired or reused; the tokens were
+cleared; ask the user to connect again), `request_failed` (One answered with
+an error or could not be reached; `status` carries it; during a refresh the
+tokens are KEPT, so retry later rather than asking the user to reconnect).
+
+To ask users for more tools later, edit the app's permission set in the
+dashboard. The next Connect shows only the new tools as "needs one more
+connection" and the callback stores the new pair; no code change.
 
 ## 7 - Rules
 
 - Never put the secret in a client bundle, a log line or an error report.
 - Store tokens encrypted, keyed by the app's user. Delete them when the user
-  is deleted. The client deletes them itself when a refresh fails.
+  is deleted. The client deletes them itself only when One declares the
+  grant dead, and never deletes a newer pair saved in the meantime.
+- Give the store `withLock` whenever more than one process can refresh.
 - The registered redirect URI and `ONE_REDIRECT_URI` must be the same string.
 - Do not build a completion page. The callback redirect is the completion.
 - Do not write the OAuth steps by hand when the package exposes them.
