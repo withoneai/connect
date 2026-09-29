@@ -1,7 +1,8 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { StrictMode, act, createElement } from "react";
-import { createRoot } from "react-dom/client";
+import { createRoot, hydrateRoot } from "react-dom/client";
+import { renderToString } from "react-dom/server";
 
 import { mountConnectButton } from "@withone/connect";
 import { ConnectButton, useOneConnect } from "@withone/connect/react";
@@ -198,11 +199,16 @@ describe("the button", () => {
       variant: "accent",
       accentColor: "#1B2A5C",
     });
-    const host = container.querySelector<HTMLElement>(".one-connect")!;
-    expect(host.style.getPropertyValue("--one-connect-accent")).toBe("#1B2A5C");
-    expect(host.style.getPropertyValue("--one-connect-accent-fg")).toBe(
+    // On the button inside the shadow root, never on the host.
+    const button = buttonIn(container);
+    expect(button.style.getPropertyValue("--one-connect-accent")).toBe(
+      "#1B2A5C",
+    );
+    expect(button.style.getPropertyValue("--one-connect-accent-fg")).toBe(
       "#FFFFFF",
     );
+    const host = container.querySelector<HTMLElement>(".one-connect")!;
+    expect(host.hasAttribute("style")).toBe(false);
   });
 
   it("names the block card by its title and describes it by its sub-line", () => {
@@ -240,6 +246,19 @@ describe("the button", () => {
 });
 
 describe("<one-connect-button>", () => {
+  it("never writes to its own attributes, so a server-rendered page hydrates unchanged", () => {
+    container.innerHTML =
+      '<one-connect-button authorize-url="/a" variant="accent" accent-color="#1B2A5C" full-width></one-connect-button>';
+    const element = container.querySelector("one-connect-button")!;
+    expect(element.shadowRoot?.querySelector("button")).toBeTruthy();
+    expect(element.getAttributeNames().sort()).toEqual([
+      "accent-color",
+      "authorize-url",
+      "full-width",
+      "variant",
+    ]);
+  });
+
   it("maps attributes to props and dispatches events with a code", async () => {
     returnTo("?one_connect=error&one_connect_error=declined");
     const element = document.createElement("one-connect-button");
@@ -255,7 +274,7 @@ describe("<one-connect-button>", () => {
     await tick();
     const button = buttonIn(element);
     expect(button.dataset).toMatchObject({ size: "lg", theme: "auto" });
-    expect(element.hasAttribute("data-full-width")).toBe(true);
+    expect(button.hasAttribute("data-full-width")).toBe(true);
     expect(events).toEqual([
       { message: ERROR_MESSAGES.declined, code: "declined" },
     ]);
@@ -267,6 +286,35 @@ describe("<one-connect-button>", () => {
 });
 
 describe("React", () => {
+  it("renders its host with the layout attributes, and hydrates without a mismatch", async () => {
+    const props = {
+      authorizeUrl: "/a",
+      variant: "block" as const,
+      fullWidth: true,
+      className: "mine",
+    };
+    const html = renderToString(createElement(ConnectButton, props));
+    expect(html).toBe(
+      '<span class="one-connect mine" data-variant="block" data-full-width=""></span>',
+    );
+    container.innerHTML = html;
+    const recoverable = vi.fn();
+    let root: ReturnType<typeof hydrateRoot> | undefined;
+    await act(async () => {
+      root = hydrateRoot(container, createElement(ConnectButton, props), {
+        onRecoverableError: recoverable,
+      });
+    });
+    expect(recoverable).not.toHaveBeenCalled();
+    const host = container.firstElementChild as HTMLElement;
+    expect(host.tagName).toBe("SPAN");
+    expect(host.outerHTML).toBe(html);
+    expect(host.shadowRoot?.querySelector("button")?.dataset.variant).toBe(
+      "block",
+    );
+    await act(async () => root!.unmount());
+  });
+
   const render = async (node: ReturnType<typeof createElement>) => {
     const root = createRoot(container);
     await act(async () => root.render(node));

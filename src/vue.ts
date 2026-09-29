@@ -21,7 +21,7 @@ import {
 import type { PropType } from "vue";
 
 import {
-  mountConnectButton,
+  renderConnectButton,
   type ConnectButtonHandle,
   type ConnectButtonPlatformInput,
   type ConnectButtonProps,
@@ -71,7 +71,7 @@ export const ConnectButton = defineComponent({
     cancel: () => true,
   },
   setup(props, { emit }) {
-    const container = ref<HTMLElement | null>(null);
+    const host = ref<HTMLElement | null>(null);
     let handle: ConnectButtonHandle | null = null;
 
     const current = (): ConnectButtonProps => ({
@@ -82,8 +82,7 @@ export const ConnectButton = defineComponent({
     });
 
     onMounted(() => {
-      if (container.value)
-        handle = mountConnectButton(container.value, current());
+      if (host.value) handle = renderConnectButton(host.value, current());
     });
     watch(
       () => ({ ...props }),
@@ -95,6 +94,14 @@ export const ConnectButton = defineComponent({
       handle = null;
     });
 
-    return () => h("div", { ref: container });
+    // The host carries its layout attributes from the render, so server
+    // and client HTML agree; the button lives in its shadow root.
+    return () =>
+      h("span", {
+        ref: host,
+        class: "one-connect",
+        "data-variant": props.variant ?? "default",
+        "data-full-width": props.fullWidth ? "" : undefined,
+      });
   },
 });

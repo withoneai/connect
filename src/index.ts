@@ -1,5 +1,9 @@
 export { createConnectFlow, readConnectReturn, useOneConnect } from "./flow";
-export { mountConnectButton, registerConnectButton } from "./button";
+export {
+  mountConnectButton,
+  registerConnectButton,
+  renderConnectButton,
+} from "./button";
 export type {
   ConnectButtonHandle,
   ConnectButtonPlatform,
