@@ -110,11 +110,17 @@ export interface CompleteAuthorizationInput {
   getCookie: (name: string) => string | undefined;
 }
 
+import type { ConnectFailureCode } from "../types";
+export type { ConnectFailureCode };
+
 export type AuthorizationOutcome = "connected" | "declined" | "failed";
 
 export interface CompleteAuthorizationResult {
   outcome: AuthorizationOutcome;
-  /** Safe to show to the user when the outcome is not "connected". */
+  /** Why it failed, as the code the browser receives. Only the code goes
+   *  on the return URL; the browser shows fixed text for it. */
+  code?: ConnectFailureCode;
+  /** What happened, for your logs. Never put it in front of the user. */
   message?: string;
   /** Send the browser here with a 302; it carries `?one_connect=…`. */
   redirectUrl: string;

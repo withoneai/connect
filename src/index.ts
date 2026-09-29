@@ -1,25 +1,23 @@
-export { useOneConnect } from "./useOneConnect";
+export { createConnectFlow, readConnectReturn, useOneConnect } from "./flow";
 export { mountConnectButton, registerConnectButton } from "./button";
-export {
-  optionsFromProps,
-  propsIdentity,
-  type ConnectButtonProps,
-  type ConnectButtonCallbacks,
-} from "./wrapper-options";
-export {
-  normalizePlatform,
-  normalizePlatforms,
-  parsePlatformsAttribute,
-} from "./platforms";
 export type {
-  OneConnectOptions,
-  OneConnectHandle,
-  OneConnectReturn,
-  OneConnectTheme,
-  ConnectButtonOptions,
+  ConnectButtonHandle,
   ConnectButtonPlatform,
   ConnectButtonPlatformInput,
-  ConnectButtonVariant,
+  ConnectButtonProps,
+  ConnectButtonSize,
   ConnectButtonState,
-  ConnectButtonHandle,
+  ConnectButtonTheme,
+  ConnectButtonVariant,
+  ConnectFailureCode,
+  OneConnectFlow,
+  OneConnectFlowOptions,
+  OneConnectReturn,
+  OneConnectTheme,
 } from "./types";
+
+import type { OneConnectFlow, OneConnectFlowOptions } from "./types";
+/** @deprecated Renamed to `OneConnectFlowOptions`; removed in the next minor. */
+export type OneConnectOptions = OneConnectFlowOptions;
+/** @deprecated Renamed to `OneConnectFlow`; removed in the next minor. */
+export type OneConnectHandle = OneConnectFlow;

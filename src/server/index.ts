@@ -25,7 +25,7 @@
  * spending a refresh token, clears tokens only when One declares the
  * grant dead, and never lets a failing old pair delete a newer one.
  */
-import { DEFAULT_ONE_API_URL, RETURN_MESSAGE_PARAM, RETURN_STATUS_PARAM } from "../constants";
+import { DEFAULT_ONE_API_URL, RETURN_ERROR_PARAM, RETURN_STATUS_PARAM } from "../constants";
 import {
   DEFAULT_SCOPES,
   basicAuthorization,
@@ -41,6 +41,7 @@ import {
   OneConnectError,
   type CompleteAuthorizationInput,
   type CompleteAuthorizationResult,
+  type ConnectFailureCode,
   type OneConnectServerConfig,
   type OneConnectTokens,
   type PlatformAction,
@@ -137,10 +138,10 @@ export function createOneConnect(config: OneConnectServerConfig): OneConnect {
    *  same refresh token trip One's reuse detection. */
   const refreshing = new Map<string, Promise<OneConnectTokens>>();
 
-  const returnUrl = (status: "success" | "error", message?: string): string => {
+  const returnUrl = (status: "success" | "error", code?: ConnectFailureCode): string => {
     const url = new URL(returnTo, config.redirectUri);
     url.searchParams.set(RETURN_STATUS_PARAM, status);
-    if (message) url.searchParams.set(RETURN_MESSAGE_PARAM, message);
+    if (code) url.searchParams.set(RETURN_ERROR_PARAM, code);
     return url.toString();
   };
 
@@ -231,23 +232,24 @@ export function createOneConnect(config: OneConnectServerConfig): OneConnect {
     const verifier = cookieName ? input.getCookie(cookieName) : undefined;
 
     const fail = (
-      outcome: "declined" | "failed",
+      failure: ConnectFailureCode,
       message: string,
     ): CompleteAuthorizationResult => ({
-      outcome,
+      outcome: failure === "declined" ? "declined" : "failed",
+      code: failure,
       message,
-      redirectUrl: returnUrl("error", message),
+      redirectUrl: returnUrl("error", failure),
       clearCookieName: cookieName,
     });
 
     if (oauthError === "access_denied")
-      return fail("declined", "You cancelled the request.");
+      return fail("declined", "The user cancelled on One's page.");
     if (oauthError)
       return fail("failed", `One reported an error: ${oauthError}.`);
-    // The returned state names its own cookie. No cookie means a forged
-    // or stale state; the code is never exchanged in that case.
+    // The returned state names its own cookie. No cookie means a stale,
+    // foreign or forged state; the code is never exchanged in that case.
     if (!code || !state || !verifier)
-      return fail("failed", "The sign-in attempt expired or was tampered with.");
+      return fail("expired", "The attempt expired, or its state cookie was missing.");
 
     try {
       const tokens = toTokens(

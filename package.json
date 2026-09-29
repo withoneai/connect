@@ -1,6 +1,6 @@
 {
   "name": "@withone/connect",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "description": "One Connect for your app: the button your users press, the two backend routes as one import, and a server client that calls One with the grant. Users keep their connections in One; your app holds only what they granted.",
   "files": [
     "dist",
@@ -27,8 +27,11 @@
     "@tsconfig/recommended": "^1.0.3",
     "@types/node": "^22.15.0",
     "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.3.0",
+    "happy-dom": "^20.14.5",
     "prettier": "^3.2.5",
     "react": "^19.2.8",
+    "react-dom": "^19.3.0",
     "rollup": "^4.12.0",
     "rollup-plugin-typescript2": "^0.36.0",
     "tslib": "^2.6.2",

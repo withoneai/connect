@@ -1,11 +1,17 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  nameFromSlug,
   normalizePlatform,
   normalizePlatforms,
   parsePlatformsAttribute,
-} from "@withone/connect";
-import { hasReturnParams, parseReturn, stripReturnParams } from "../src/return";
+} from "../src/platforms";
+import {
+  ERROR_MESSAGES,
+  hasReturnParams,
+  parseReturn,
+  stripReturnParams,
+} from "../src/return";
 
 describe("platforms", () => {
   it("turns a slug into a name and a logo", () => {
@@ -24,12 +30,24 @@ describe("platforms", () => {
 
   it("keeps an explicit logo and name", () => {
     expect(
-      normalizePlatform({ slug: "stripe", name: "Stripe Billing", imageUrl: "/s.svg" }),
+      normalizePlatform({
+        slug: "stripe",
+        name: "Stripe Billing",
+        imageUrl: "/s.svg",
+      }),
     ).toEqual({ slug: "stripe", name: "Stripe Billing", imageUrl: "/s.svg" });
   });
 
+  it("spells brands the way they spell themselves", () => {
+    expect(nameFromSlug("hubspot")).toBe("HubSpot");
+    expect(nameFromSlug("one-drive")).toBe("OneDrive");
+    expect(nameFromSlug("google-calendar")).toBe("Google Calendar");
+  });
+
   it("drops entries that name nothing", () => {
-    expect(normalizePlatforms(["", { imageUrl: "/x.svg" }, "notion"])).toHaveLength(1);
+    expect(
+      normalizePlatforms(["", { imageUrl: "/x.svg" }, "notion"]),
+    ).toHaveLength(1);
   });
 
   it("parses a comma list attribute", () => {
@@ -55,11 +73,27 @@ describe("return params", () => {
     expect(parseReturn("?one_connect=success")).toEqual({ status: "success" });
   });
 
-  it("reads an error with its message", () => {
-    expect(parseReturn("?one_connect=error&one_connect_message=You%20cancelled")).toEqual({
+  it("reads an error code and shows only fixed text for it", () => {
+    expect(
+      parseReturn("?one_connect=error&one_connect_error=declined"),
+    ).toEqual({
       status: "error",
-      message: "You cancelled",
+      code: "declined",
+      message: ERROR_MESSAGES.declined,
     });
+  });
+
+  it("never shows text that arrived on the URL", () => {
+    // A crafted link: free text in the legacy param, an unknown code.
+    const crafted = parseReturn(
+      "?one_connect=error&one_connect_error=call-us&one_connect_message=Your%20account%20is%20locked",
+    );
+    expect(crafted).toEqual({
+      status: "error",
+      code: "failed",
+      message: ERROR_MESSAGES.failed,
+    });
+    expect(JSON.stringify(crafted)).not.toContain("locked");
   });
 
   it("ignores unrelated or malformed values", () => {
@@ -71,7 +105,8 @@ describe("return params", () => {
     expect(
       stripReturnParams({
         pathname: "/dashboard",
-        search: "?tab=users&one_connect=success&one_connect_message=x",
+        search:
+          "?tab=users&one_connect=error&one_connect_error=failed&one_connect_message=x",
         hash: "#top",
       }),
     ).toBe("/dashboard?tab=users#top");

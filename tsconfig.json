@@ -36,6 +36,15 @@
       "@withone/connect/next": [
         "src/next.ts"
       ],
+      "@withone/connect/react": [
+        "src/react.ts"
+      ],
+      "@withone/connect/vue": [
+        "src/vue.ts"
+      ],
+      "@withone/connect/svelte": [
+        "src/svelte.ts"
+      ],
       "@withone/connect/node": [
         "src/node.ts"
       ]

@@ -10,35 +10,60 @@
 /** Theme of One's hosted connect page. */
 export type OneConnectTheme = "light" | "dark";
 
-export interface OneConnectOptions {
+/** Theme of the button: fixed, or following the visitor's setting. */
+export type ConnectButtonTheme = "light" | "dark" | "auto";
+
+/**
+ * Why a flow ended without a grant. The callback route puts only this
+ * code on the return URL; the text shown for it is fixed in the SDK, so
+ * a crafted link can never put its own words in front of the user.
+ *
+ * - `declined`: the user cancelled on One's page.
+ * - `expired`: the attempt took too long or was started elsewhere.
+ * - `failed`: One could not complete the connection.
+ */
+export type ConnectFailureCode = "declined" | "expired" | "failed";
+
+export interface OneConnectFlowOptions {
   /** The app's own backend authorize route. Relative paths such as
    *  "/api/one/authorize" resolve against the page's origin. */
   authorizeUrl: string;
   /** Theme for One's hosted page. Carried on the URL fragment, which
    *  survives the redirect chain, so the backend forwards nothing. */
+  connectTheme?: OneConnectTheme;
+  /** @deprecated Renamed to `connectTheme`; removed in the next minor. */
   appTheme?: OneConnectTheme;
-  /** The grant completed and the backend stored the tokens. */
+  /** The grant completed and the backend stored the tokens. Fires once
+   *  per page load, on the first flow still mounted when the tab
+   *  returns. Treat it as a hint to refetch: your server is the truth. */
   onSuccess?: () => void;
-  /** The flow ended without a grant: the user declined, the attempt
-   *  expired, or the exchange failed. `message` is safe to show. */
-  onError?: (message: string) => void;
+  /** The flow ended without a grant. `message` is fixed text for
+   *  `code`, safe to show. */
+  onError?: (message: string, code: ConnectFailureCode) => void;
+  /** The user came back with the browser's Back button before finishing
+   *  (the page was restored from the back-forward cache). */
+  onCancel?: () => void;
 }
 
-export interface OneConnectHandle {
+export interface OneConnectFlow {
   /** Navigates the tab to One's hosted connect flow. */
   open: () => void;
+  /** Swaps the options (callbacks, theme) without losing the flow. */
+  update: (options: OneConnectFlowOptions) => void;
+  /** Stops listening: callbacks no longer fire for this flow. */
+  destroy: () => void;
 }
 
-/** How the app's callback route reports the outcome on its final
- *  redirect, read off the page URL when the tab returns. */
+/** How the flow ended, read off the page URL when the tab returns. */
 export interface OneConnectReturn {
   status: "success" | "error";
+  code?: ConnectFailureCode;
   message?: string;
 }
 
 /**
  * A connector chip on the button. Pass One's connector slug ("stripe",
- * "google-calendar") and the SDK shows the logo and the name; pass an
+ * "google-calendar") and the SDK shows its logo and name; pass an
  * object to override either.
  */
 export type ConnectButtonPlatformInput =
@@ -52,33 +77,52 @@ export interface ConnectButtonPlatform {
 }
 
 export type ConnectButtonVariant = "default" | "accent" | "block";
+export type ConnectButtonSize = "sm" | "md" | "lg";
 export type ConnectButtonState = "idle" | "connecting" | "connected";
 
-export interface ConnectButtonOptions {
-  /** Everything the flow needs; the button wires open() and the
-   *  Connecting and Connected states around your callbacks. */
-  connect: OneConnectOptions;
-  /** "Connect your apps" unless overridden. */
-  label?: string;
-  /** default = neutral pill; accent = brand-colored pill; block =
-   *  full-width card with a description and a "Secured by One" foot. */
-  variant?: ConnectButtonVariant;
-  /** Matches the host page, not One's page (that is connect.appTheme). */
-  theme?: OneConnectTheme;
-  /** Connector chips. The first three render; the rest fold into a "+N"
-   *  chip, so that count only ever describes this list. */
+/** One prop shape for every surface: React, Vue, Svelte, the custom
+ *  element and `mountConnectButton`. */
+export interface ConnectButtonProps {
+  /** The app's own backend authorize route; relative is fine. */
+  authorizeUrl: string;
+  /** Connector slugs, or objects that override the name or the logo.
+   *  The first three draw as logos; the rest fold into a "+N" chip. */
   platforms?: ConnectButtonPlatformInput[];
-  /** Sub-line on the block variant, shown while idle. */
-  description?: string;
-  /** Fill of the accent variant; One's lime when omitted. */
+  /** Whether this user has a live grant, from your server. When set, it
+   *  decides the Connected state. When omitted, the button shows
+   *  Connected only right after a successful return. */
+  connected?: boolean;
+  /** Not clickable, for example until terms are accepted. */
+  disabled?: boolean;
+  /** default = neutral, accent = your brand colour, block = a card with
+   *  a description and a "Secured by One" foot. */
+  variant?: ConnectButtonVariant;
+  size?: ConnectButtonSize;
+  /** Stretches to the width of its container. */
+  fullWidth?: boolean;
+  /** Matches the host page. "auto" follows the visitor's setting. */
+  theme?: ConnectButtonTheme;
+  /** Theme of One's hosted page. */
+  connectTheme?: OneConnectTheme;
+  /** @deprecated Renamed to `connectTheme`; removed in the next minor. */
+  appTheme?: OneConnectTheme;
+  /** Fill of the accent variant; One's lime when omitted. The label is
+   *  black or white, whichever reads better on it. */
   accentColor?: string;
-  /** Label for the connected state. */
+  /** "Connect your apps" unless set. */
+  label?: string;
+  /** "Connected" unless set. */
   connectedLabel?: string;
+  /** Sub-line on the block variant. */
+  description?: string;
+  onSuccess?: () => void;
+  onError?: (message: string, code: ConnectFailureCode) => void;
+  onCancel?: () => void;
 }
 
 export interface ConnectButtonHandle {
-  /** Override the visual state by hand. */
-  setState: (state: ConnectButtonState) => void;
-  /** Remove the button. */
+  /** Applies new props in place, keeping the button's state. */
+  update: (props: ConnectButtonProps) => void;
+  /** Removes the button and stops its callbacks. */
   destroy: () => void;
 }

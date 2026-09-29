@@ -13,13 +13,48 @@ export function slugFromName(name: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-/** "google-calendar" -> "Google Calendar". */
+/** Brands whose name is not their slug in title case. Everything else
+ *  reads right from the slug ("google-calendar" -> "Google Calendar"). */
+const BRAND_NAMES: Record<string, string> = {
+  "cal-com": "Cal.com",
+  "click-up": "ClickUp",
+  clickup: "ClickUp",
+  docusign: "DocuSign",
+  elevenlabs: "ElevenLabs",
+  "fireflies-ai": "Fireflies.ai",
+  github: "GitHub",
+  gitlab: "GitLab",
+  hubspot: "HubSpot",
+  "linked-in": "LinkedIn",
+  linkedin: "LinkedIn",
+  "one-drive": "OneDrive",
+  onedrive: "OneDrive",
+  openai: "OpenAI",
+  "otter-ai": "Otter.ai",
+  paypal: "PayPal",
+  posthog: "PostHog",
+  quickbooks: "QuickBooks",
+  sharepoint: "SharePoint",
+  "spotify-web": "Spotify",
+  teams: "Microsoft Teams",
+  "telegram-bot": "Telegram",
+  "whatsapp-business": "WhatsApp Business",
+  woocommerce: "WooCommerce",
+  x: "X",
+  "youtube-data": "YouTube",
+  youtube: "YouTube",
+};
+
+/** "google-calendar" -> "Google Calendar"; "hubspot" -> "HubSpot". */
 export function nameFromSlug(slug: string): string {
-  return slug
-    .split(/[-_]+/)
-    .filter(Boolean)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
+  return (
+    BRAND_NAMES[slug] ??
+    slug
+      .split(/[-_]+/)
+      .filter(Boolean)
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ")
+  );
 }
 
 /** One's logo for a connector slug. */
