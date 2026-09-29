@@ -300,10 +300,14 @@ describe("refresh", () => {
   });
   afterEach(() => vi.unstubAllGlobals());
 
+  // One timestamp for the whole suite: tests compare the pair they stored
+  // with the pair they expect, and a second Date.now() can land a
+  // millisecond later on a slow machine. Within the refresh margin either way.
+  const EXPIRES_AT = Date.now() + 1000;
   const expiring = (refreshToken = "rt"): OneConnectTokens => ({
     accessToken: "old",
     refreshToken,
-    expiresAt: Date.now() + 1000,
+    expiresAt: EXPIRES_AT,
   });
 
   it("keeps the tokens when One has a server error, and says to retry", async () => {
