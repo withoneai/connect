@@ -106,7 +106,12 @@ describe("createOneConnect", () => {
       getCookie: () => "verifier",
     });
     expect(result.outcome).toBe("declined");
-    expect(result.redirectUrl).toContain("one_connect=error");
+    expect(result.code).toBe("declined");
+    // Only a code travels on the URL, never text a link could forge.
+    const back = new URL(result.redirectUrl);
+    expect(back.searchParams.get("one_connect")).toBe("error");
+    expect(back.searchParams.get("one_connect_error")).toBe("declined");
+    expect(back.searchParams.has("one_connect_message")).toBe(false);
     expect(result.clearCookieName).toBe("one_tx_s1");
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -119,6 +124,8 @@ describe("createOneConnect", () => {
       getCookie: () => undefined,
     });
     expect(result.outcome).toBe("failed");
+    expect(result.code).toBe("expired");
+    expect(result.redirectUrl).toContain("one_connect_error=expired");
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

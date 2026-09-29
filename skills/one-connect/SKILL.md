@@ -126,32 +126,50 @@ The routes mint `state` and PKCE, keep them in a per-flow httpOnly cookie
 (`one_tx_<state>`, SameSite=Lax, 30 minutes), verify the state on return,
 exchange the code with the secret over HTTP Basic, store both tokens, and
 redirect to `/` with `?one_connect=success` or
-`?one_connect=error&one_connect_message=...`. Pass `returnTo` to
+`?one_connect=error&one_connect_error=declined|expired|failed` (a code, never
+free text: the SDK shows fixed text for it). Pass `returnTo` to
 `createOneConnect` to land somewhere else.
 
 ## 5 - The button
 
 ```tsx
-import { ConnectButton } from "@withone/connect/react";
+import { ConnectButton } from "@withone/connect/react";   // "use client" bundle: fine in a Server Component
 
 <ConnectButton
   authorizeUrl="/api/one/authorize"
-  platforms={["stripe", "google-calendar"]}   // connector slugs; logos and names come from One
-  onSuccess={() => { /* refresh app state; the tokens are already stored */ }}
-  onError={(message) => { /* show it; the user may simply have declined */ }}
+  platforms={["stripe", "google-calendar"]}   // connector slugs; logos from One's CDN, names from the slug
+  connected={hasGrant}                         // from the server (e.g. await oneConnect.isConnected(userId))
+  onSuccess={() => { /* refetch app state; the tokens are already stored */ }}
+  onError={(message, code) => { /* show message; code: declined | expired | failed */ }}
 />
 ```
 
-Vue: `import { ConnectButton } from "@withone/connect/vue"` with `authorize-url`,
-`:platforms`, `@success`, `@error`. Svelte: `import { connectButton } from
-"@withone/connect/svelte"` as `use:connectButton={{ authorizeUrl, platforms,
-onSuccess }}`. Anything else: `import "@withone/connect"` registers
-`<one-connect-button authorize-url="/api/one/authorize" platforms="stripe, notion">`,
-which dispatches `success` and `error` events. A custom element:
-`useOneConnect({ authorizeUrl, onSuccess, onError }).open` on a click.
+Other props: `disabled`, `variant` ("default" | "accent" | "block"), `size`
+("sm" | "md" | "lg"), `fullWidth`, `theme` ("light" | "dark" | "auto"),
+`connectTheme` (One's page), `accentColor`, `label`, `connectedLabel`,
+`description` (block), `onCancel` (user pressed Back on One's page).
 
-The flow is a same-tab redirect. `onSuccess` and `onError` fire once when the
-tab comes back, and the SDK removes the `one_connect` params from the URL.
+Always pass `connected` from the server. Without it the button forgets after
+a reload and asks the user to connect again.
+
+Vue: `import { ConnectButton } from "@withone/connect/vue"` with the same props
+in kebab case (`authorize-url`, `:connected`), and `@success`, `@error`,
+`@cancel`. Svelte: `import { connectButton } from "@withone/connect/svelte"`
+as `use:connectButton={{ authorizeUrl, platforms, connected, onSuccess }}`.
+Anything else: `import "@withone/connect"` registers
+`<one-connect-button authorize-url="/api/one/authorize" platforms="stripe, notion" connected>`,
+which dispatches `success`, `error` (detail `{ message, code }`) and `cancel`.
+A custom button in React: `const { open, status, error } = useOneConnect({ authorizeUrl })`
+from `@withone/connect/react`. Elsewhere: `createConnectFlow({ authorizeUrl, onSuccess, onError }).open`.
+
+The button renders in a shadow root with a constructed stylesheet, so it
+works under a strict CSP. Allow `https://assets.withone.ai` in `img-src` for
+the logos. Style it with `--one-connect-font`, `--one-connect-radius` and
+`::part(button)`; do not wrap it in extra styling divs.
+
+The flow is a same-tab redirect. The outcome is read once per page load:
+every button shows it, and the callbacks fire once, on the first button
+still mounted.
 
 ## 6 - Calling One with the grant
 

@@ -78,17 +78,18 @@ ONE_API_URL=https://api.withone.ai      # optional: production when unset
 
 ## 2 · The button
 
-Any element wired to `open()` works. The pre-built button draws connector logos from their slugs, and manages Connect → Connecting → Connected on its own.
+Any element wired to `open()` works. The pre-built button draws connector logos from their slugs and handles Connect → Connecting → Connected itself. It renders in its own shadow root, so your page's CSS can't break it, and it keeps its look under a strict Content Security Policy (`style-src 'self'`).
 
 ```tsx
-// React / Next.js
+// React / Next.js: safe to import from a Server Component (the bundle is "use client")
 import { ConnectButton } from "@withone/connect/react";
 
 <ConnectButton
   authorizeUrl="/api/one/authorize"
   platforms={["stripe", "google-calendar", "gmail"]}
+  connected={user.hasOneGrant}          // from your server; see below
   onSuccess={() => refreshAppState()}
-  onError={(message) => showBanner(message)}
+  onError={(message, code) => showBanner(message)}
 />
 ```
 
@@ -98,7 +99,7 @@ import { ConnectButton } from "@withone/connect/react";
 import { ConnectButton } from "@withone/connect/vue";
 </script>
 <template>
-  <ConnectButton authorize-url="/api/one/authorize" :platforms="['stripe', 'notion']" @success="onConnected" />
+  <ConnectButton authorize-url="/api/one/authorize" :platforms="['stripe', 'notion']" :connected="hasGrant" @success="onConnected" />
 </template>
 ```
 
@@ -107,45 +108,79 @@ import { ConnectButton } from "@withone/connect/vue";
 <script>
   import { connectButton } from "@withone/connect/svelte";
 </script>
-<div use:connectButton={{ authorizeUrl: "/api/one/authorize", platforms: ["stripe", "notion"], onSuccess }} />
+<div use:connectButton={{ authorizeUrl: "/api/one/authorize", platforms: ["stripe", "notion"], connected: data.hasGrant, onSuccess }} />
 ```
 
 ```html
 <!-- Plain HTML or any other framework: importing the package registers the element -->
-<one-connect-button authorize-url="/api/one/authorize" platforms="stripe, notion"></one-connect-button>
+<one-connect-button authorize-url="/api/one/authorize" platforms="stripe, notion" connected></one-connect-button>
 <script type="module">
   import "@withone/connect";
   document.querySelector("one-connect-button").addEventListener("success", () => location.reload());
 </script>
 ```
 
+Every surface takes the same props. Attributes are the kebab-case names, and `connected`, `disabled` and `full-width` are boolean attributes.
+
 | Prop (attribute) | What it does |
 |---|---|
 | `authorizeUrl` (`authorize-url`) | Your authorize route. Relative paths resolve against the page. Required. |
-| `platforms` | Connector slugs: `["stripe", "google-calendar"]`. Logos and names come from One. To override either, pass `{ slug, name, imageUrl }`. As an attribute: `"stripe, notion"`. The first three render as logos; anything beyond them becomes a `+N` chip. |
-| `label` | Button text. Default "Connect your apps". |
-| `connectedLabel` (`connected-label`) | Text after a successful return. Default "Connected". |
-| `variant` | `default` pill · `accent` brand-colored pill · `block` card with a description |
-| `description` | Sub-line on the `block` variant |
-| `theme` | `light` or `dark`, matching *your* page |
-| `appTheme` (`app-theme`) | `light` or `dark` for One's page |
-| `accentColor` (`accent-color`) | Fill of the `accent` variant. One's lime when omitted. |
-| `onSuccess` / `onError` | Fire once when the tab returns. `onError` receives a message safe to show. The element also dispatches `success` and `error` events. |
+| `platforms` | Connector slugs: `["stripe", "google-calendar"]`. Logos come from One's CDN and names from the slug, spelled the way each brand spells itself (`hubspot` → HubSpot). Pass `{ slug, name, imageUrl }` to override either. As an attribute: `"stripe, notion"`. The first three draw as logos; the rest fold into a `+N` chip. |
+| `connected` | Whether this user has a live grant, **from your server**. When set, it decides the Connected state, so the button stays right after a reload. When omitted, the button shows Connected only right after a successful return. |
+| `disabled` | Not clickable, for example until terms are accepted. |
+| `variant` | `default` neutral · `accent` your brand colour · `block` a card with a description and a "Secured by One" foot |
+| `size` | `sm` · `md` (default) · `lg` |
+| `fullWidth` (`full-width`) | Stretches to its container. |
+| `theme` | `light` (default), `dark`, or `auto` to follow the visitor's setting. Matches *your* page. |
+| `connectTheme` (`connect-theme`) | `light` or `dark` for One's hosted page. `appTheme` still works and is deprecated. |
+| `accentColor` (`accent-color`) | Fill of the `accent` variant; One's lime when omitted. The label is black or white, whichever reads better on it. |
+| `label` · `connectedLabel` (`connected-label`) | Button text. Defaults: "Connect your apps" · "Connected". |
+| `description` | Sub-line on the `block` variant. |
+| `onSuccess` | The grant was stored. Fires once per page load, on the first button still mounted. Refetch; your server is the truth. |
+| `onError(message, code)` | The flow ended without a grant. `code` is `declined`, `expired` or `failed`, and `message` is the SDK's fixed text for it, safe to show. |
+| `onCancel` | The user came back with the browser's Back button before finishing. The button is already clickable again. |
 
-Your own element:
+The custom element dispatches `success`, `error` (`detail: { message, code }`) and `cancel` events.
 
-```ts
-import { useOneConnect } from "@withone/connect";
+**Matching your design system.** The button inherits your page's font. Two custom properties and two parts do the rest:
 
-const { open } = useOneConnect({
-  authorizeUrl: "/api/one/authorize",
-  onSuccess: () => {},
-  onError: (message) => {},
-});
-button.addEventListener("click", open);
+```css
+one-connect-button, .one-connect {
+  --one-connect-font: var(--font-sans);
+  --one-connect-radius: 8px;
+}
+.one-connect::part(button) { box-shadow: none; }   /* the React, Vue and Svelte host */
+one-connect-button::part(label) { font-weight: 600; }
 ```
 
-The flow is a full-page redirect in the same tab, so it works in every browser with no popup or iframe. When your callback route redirects home it appends `?one_connect=success` (or `?one_connect=error&one_connect_message=…`); the SDK reads that on load, fires your callback once, and removes the params from the address bar.
+Under a strict CSP, allow One's connector logos in `img-src` (`https://assets.withone.ai`). If they're blocked, each chip falls back to the connector's first letter.
+
+**Your own element.** In React, use the hook:
+
+```tsx
+import { useOneConnect } from "@withone/connect/react";
+
+const { open, status, error } = useOneConnect({ authorizeUrl: "/api/one/authorize" });
+// status: "idle" | "connecting" | "connected" | "error"
+<button onClick={open} disabled={status === "connecting"}>Connect your tools</button>
+```
+
+Anywhere else, use `createConnectFlow`:
+
+```ts
+import { createConnectFlow } from "@withone/connect";
+
+const flow = createConnectFlow({
+  authorizeUrl: "/api/one/authorize",
+  onSuccess: () => {},
+  onError: (message, code) => {},
+  onCancel: () => {},
+});
+button.addEventListener("click", flow.open);
+// later: flow.destroy()
+```
+
+**How the return works.** The flow is a full-page redirect in the same tab, so it works in every browser with no popup or iframe. When your callback route redirects home, it appends `?one_connect=success` or `?one_connect=error&one_connect_error=<code>`. The SDK reads that once per page load, shows it on every button, calls back once, and removes the params from the address bar. Only the code travels on the URL. The text comes from the SDK, so a crafted link can't put its own words in front of your users. `readConnectReturn()` returns the same outcome if you want to show it yourself.
 
 ## 3 · The two routes, as one import
 
@@ -203,7 +238,7 @@ app.get("/api/one/authorize", authorize);
 app.get("/api/one/callback", callback);
 ```
 
-What the routes do for you: mint `state` and a PKCE verifier, keep them in a per-flow httpOnly cookie, send the browser to One, verify the returned state, exchange the code with your secret over HTTP Basic, store both tokens through your `tokenStore`, and redirect home with the outcome. A declined consent, an expired attempt and a failed exchange all come back as `?one_connect=error` with a message you can show.
+What the routes do for you: mint `state` and a PKCE verifier, keep them in a per-flow httpOnly cookie, send the browser to One, verify the returned state, exchange the code with your secret over HTTP Basic, store both tokens through your `tokenStore`, and redirect home with the outcome. A declined consent, an expired attempt and a failed exchange come back as `?one_connect=error&one_connect_error=declined|expired|failed`. `completeAuthorization` also returns a `message` describing what happened, for your logs only.
 
 **Another language?** The routes are ordinary OAuth 2.1 authorization code with PKCE. The reference behaviour is in `src/server/index.ts`; the same steps work in Python, Go or Ruby.
 

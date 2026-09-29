@@ -5,12 +5,11 @@
  * Svelte compiler or dependency is involved:
  *
  *   <div use:connectButton={{ authorizeUrl: "/api/one/authorize",
- *     platforms: ["stripe", "notion"],
+ *     platforms: ["stripe", "notion"], connected: data.hasOneGrant,
  *     onSuccess: () => { ... } }} />
  */
 import {
   mountConnectButton,
-  optionsFromProps,
   type ConnectButtonHandle,
   type ConnectButtonProps,
 } from "@withone/connect";
@@ -24,17 +23,10 @@ export function connectButton(
   update: (next: ConnectButtonProps) => void;
   destroy: () => void;
 } {
-  let handle: ConnectButtonHandle = mountConnectButton(
-    node,
-    optionsFromProps(props),
-  );
+  const handle: ConnectButtonHandle = mountConnectButton(node, props);
   return {
-    update(next: ConnectButtonProps) {
-      handle.destroy();
-      handle = mountConnectButton(node, optionsFromProps(next));
-    },
-    destroy() {
-      handle.destroy();
-    },
+    // In place: the button keeps its state and focus across updates.
+    update: (next) => handle.update(next),
+    destroy: () => handle.destroy(),
   };
 }

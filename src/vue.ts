@@ -4,6 +4,7 @@
  *   <ConnectButton
  *     authorize-url="/api/one/authorize"
  *     :platforms="['stripe', 'notion']"
+ *     :connected="user.hasOneGrant"
  *     @success="onConnected"
  *   />
  *
@@ -21,59 +22,74 @@ import type { PropType } from "vue";
 
 import {
   mountConnectButton,
-  optionsFromProps,
-  propsIdentity,
   type ConnectButtonHandle,
   type ConnectButtonPlatformInput,
+  type ConnectButtonProps,
+  type ConnectButtonSize,
+  type ConnectButtonTheme,
   type ConnectButtonVariant,
+  type ConnectFailureCode,
   type OneConnectTheme,
 } from "@withone/connect";
+
+/** Booleans default to undefined, not false, so "not set" stays
+ *  distinguishable from "false" (it matters for `connected`). */
+const optionalBoolean = { type: Boolean, default: undefined };
 
 export const ConnectButton = defineComponent({
   name: "OneConnectButton",
   props: {
     authorizeUrl: { type: String, required: true },
-    appTheme: { type: String as PropType<OneConnectTheme>, default: undefined },
-    label: { type: String, default: undefined },
-    variant: {
-      type: String as PropType<ConnectButtonVariant>,
-      default: undefined,
-    },
-    theme: { type: String as PropType<OneConnectTheme>, default: undefined },
     platforms: {
       type: Array as PropType<ConnectButtonPlatformInput[]>,
       default: undefined,
     },
-    description: { type: String, default: undefined },
+    connected: optionalBoolean,
+    disabled: optionalBoolean,
+    variant: {
+      type: String as PropType<ConnectButtonVariant>,
+      default: undefined,
+    },
+    size: { type: String as PropType<ConnectButtonSize>, default: undefined },
+    fullWidth: optionalBoolean,
+    theme: { type: String as PropType<ConnectButtonTheme>, default: undefined },
+    connectTheme: {
+      type: String as PropType<OneConnectTheme>,
+      default: undefined,
+    },
+    /** @deprecated use connectTheme */
+    appTheme: { type: String as PropType<OneConnectTheme>, default: undefined },
     accentColor: { type: String, default: undefined },
+    label: { type: String, default: undefined },
     connectedLabel: { type: String, default: undefined },
+    description: { type: String, default: undefined },
   },
   emits: {
     success: () => true,
-    error: (message: string) => typeof message === "string",
+    error: (message: string, code: ConnectFailureCode) =>
+      typeof message === "string" && typeof code === "string",
+    cancel: () => true,
   },
   setup(props, { emit }) {
     const container = ref<HTMLElement | null>(null);
     let handle: ConnectButtonHandle | null = null;
 
-    const mount = () => {
-      handle?.destroy();
-      handle = null;
-      if (!container.value) return;
-      handle = mountConnectButton(
-        container.value,
-        optionsFromProps(
-          { ...props },
-          {
-            onSuccess: () => emit("success"),
-            onError: (message) => emit("error", message),
-          },
-        ),
-      );
-    };
+    const current = (): ConnectButtonProps => ({
+      ...props,
+      onSuccess: () => emit("success"),
+      onError: (message, code) => emit("error", message, code),
+      onCancel: () => emit("cancel"),
+    });
 
-    onMounted(mount);
-    watch(() => propsIdentity({ ...props }), mount);
+    onMounted(() => {
+      if (container.value)
+        handle = mountConnectButton(container.value, current());
+    });
+    watch(
+      () => ({ ...props }),
+      () => handle?.update(current()),
+      { deep: true },
+    );
     onBeforeUnmount(() => {
       handle?.destroy();
       handle = null;

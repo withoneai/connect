@@ -34,7 +34,7 @@ const nodeBabel = () =>
 /** A bundle for the browser. Subpaths import the core from
  *  "@withone/connect" and leave it external, so an app that loads both
  *  the hook and a framework wrapper runs one copy of the core. */
-const browserBuild = (name, externals = []) => ({
+const browserBuild = (name, externals = [], { directive } = {}) => ({
   input: `src/${name}.ts`,
   external: ['@withone/connect', ...externals],
   output: [
@@ -51,7 +51,8 @@ const browserBuild = (name, externals = []) => ({
     }),
     browserBabel(),
     commonjs(),
-    terser(),
+    // A directive must survive minification, so terser writes it.
+    terser(directive ? { format: { preamble: directive } } : {}),
   ],
 });
 
@@ -77,7 +78,9 @@ export default [
     ...browserBuild('index'),
     external: [],
   },
-  browserBuild('react', ['react']),
+  // "use client": the wrapper uses hooks, so a Next.js Server Component
+  // must import it as a client module.
+  browserBuild('react', ['react'], { directive: '"use client";' }),
   browserBuild('vue', ['vue']),
   browserBuild('svelte'),
   serverBuild('server/index'),
