@@ -86,7 +86,9 @@ export interface OneConnectTokenStore {
 
 export interface RefreshIfExpiringOptions {
   /** Refresh when the access token or the refresh token expires within
-   *  this many milliseconds. One minute when omitted. */
+   *  this many milliseconds. One minute when omitted. A refresh token
+   *  that has already run out cannot be refreshed: the pair is returned
+   *  as it is while its access token still works. */
   withinMs?: number;
 }
 

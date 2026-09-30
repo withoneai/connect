@@ -130,9 +130,12 @@ export const oneConnect = createOneConnect({
 In token mode, if the app runs more than one server process or a background
 worker, also add `withLock: (userId, run) => ...`, which runs `run()` while
 holding a per-user lock all processes share (for example a Postgres advisory
-lock). Once a day, call
-`oneConnect.refreshIfExpiring(userId, { withinMs: 7 * 24 * 3_600_000 })` to
-keep idle users connected.
+lock). The access token lives as long as the app's Token lifetime says (30
+days unless changed under Advanced when creating the app); the refresh token
+lives 30 days. Required: once a day, for each connected user, call
+`oneConnect.refreshIfExpiring(userId, { withinMs: 7 * 24 * 3_600_000 })`. It
+renews both tokens when either is within 7 days of expiring; without it,
+users have to connect again when the tokens run out.
 
 In both modes use the app's own user id as the key and the database it
 already has.
