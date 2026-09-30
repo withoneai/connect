@@ -1,14 +1,26 @@
 /**
  * Token mode: the app holds an access token and a refresh token per
- * user, and the SDK keeps them fresh.
+ * user, and the SDK refreshes them with One.
  *
- * Refresh. One's access token lives an hour by default, its refresh token 30
- * days; every refresh rotates both, and One treats a second use of a
- * rotated refresh token as theft and revokes the whole grant. So the
- * client refreshes one user at a time (in this process always, across
- * processes through `tokenStore.withLock`), re-reads the store before
- * spending a refresh token, clears tokens only when One declares the
- * grant dead, and never lets a failing old pair delete a newer one.
+ * Lifetimes. The access token lives as long as the app's Token lifetime
+ * setting says (dashboard, Advanced, when creating or editing the app: 7
+ * days, 30 days, 90 days or 1 year; 30 days unless changed). An app that
+ * never had the setting gets an hour. The refresh token always lives 30
+ * days, whatever the access token's lifetime, and only a live refresh
+ * token can buy a new pair.
+ *
+ * Who refreshes. Before each call the client refreshes a pair that is
+ * within a minute of expiring. Refreshing earlier than that is the app's
+ * job: it runs `refreshIfExpiring` on a schedule, so the refresh token
+ * never runs out. When it has run out, the access token is used until it
+ * expires too, and only then is the user asked to connect again.
+ *
+ * Rotation. Every refresh rotates both tokens, and One treats a second
+ * use of a rotated refresh token as theft and revokes the whole grant.
+ * So the client refreshes one user at a time (in this process always,
+ * across processes through `tokenStore.withLock`), re-reads the store
+ * before spending a refresh token, clears tokens only when the grant is
+ * dead, and never lets a failing old pair delete a newer one.
  */
 import type { Credential, PostToken, TokenAnswer, TokenResponse } from "./credential";
 import { refreshTokenExpiresAt, tenancyHeaders } from "./oauth";
@@ -60,6 +72,17 @@ export function createTokenCredential(
     );
   };
 
+  /** Whether the access token is too close to expiry to make a call with. */
+  const accessEnding = (tokens: OneConnectTokens): boolean =>
+    tokens.expiresAt <= Date.now() + REFRESH_MARGIN_MS;
+
+  /** Whether the refresh token has run out. One with no readable expiry
+   *  counts as live: only One can say otherwise. */
+  const refreshSpent = (tokens: OneConnectTokens): boolean => {
+    const refreshExpiresAt = refreshTokenExpiresAt(tokens.refreshToken);
+    return refreshExpiresAt !== null && refreshExpiresAt <= Date.now();
+  };
+
   const toTokens = (response: TokenResponse): OneConnectTokens => ({
     accessToken: response.access_token,
     refreshToken: response.refresh_token,
@@ -107,10 +130,11 @@ export function createTokenCredential(
       if (!stillNeeded(current)) return current;
 
       // An expired refresh token cannot work, and One answers one with a
-      // server error rather than invalid_grant, so settle it here.
-      const refreshExpiresAt = refreshTokenExpiresAt(current.refreshToken);
-      if (refreshExpiresAt !== null && refreshExpiresAt <= Date.now())
-        return retire(userId, current);
+      // server error rather than invalid_grant, so settle it here. The
+      // access token may outlive it (a 90-day or 1-year lifetime): that
+      // one still works, so the pair is kept until it ends too.
+      if (refreshSpent(current))
+        return accessEnding(current) ? retire(userId, current) : current;
 
       let answer: TokenAnswer;
       try {
@@ -175,6 +199,8 @@ export function createTokenCredential(
     const tokens = await tokenStore.loadTokens(userId);
     if (!tokens) throw notConnected();
     if (!expiresWithin(tokens, withinMs)) return tokens;
+    // Nothing left to refresh with, and the access token still works.
+    if (refreshSpent(tokens) && !accessEnding(tokens)) return tokens;
     return singleFlight(userId, () =>
       refreshUnderLock(userId, (current) => expiresWithin(current, withinMs)),
     );

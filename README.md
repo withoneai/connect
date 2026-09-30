@@ -209,8 +209,9 @@ Errors are `OneConnectError` with a `code`:
 ## 7 · Token mode notes
 
 - Store the tokens in your database, encrypted, keyed by your user id. The SDK refreshes them for you.
+- The access token lives as long as your app's **Token lifetime** says: 30 days unless you changed it under **Advanced** when creating or editing the app. The refresh token lives 30 days, and only a live refresh token can renew the pair.
 - Running more than one server or a background worker? Add `withLock(userId, run)` to your token store, for example a Postgres advisory lock. Two servers refreshing at once would otherwise disconnect the user.
-- Keep idle users connected: once a day, call `oneConnect.refreshIfExpiring(userId, { withinMs: 7 * 24 * 3_600_000 })`.
+- Required: once a day, for each connected user, call `oneConnect.refreshIfExpiring(userId, { withinMs: 7 * 24 * 3_600_000 })`. It renews both tokens when either is within 7 days of expiring. Without it, users have to connect again when the tokens run out.
 - `getAccessToken`, `getTokens`, `refreshTokens` and `refreshIfExpiring` exist in token mode only.
 
 To ask for more tools later, edit your app's tools in the dashboard. Users see only the new ones the next time they connect.

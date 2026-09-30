@@ -122,9 +122,8 @@ export interface OneConnect extends OneConnectClient {
   refreshTokens: (userId: string) => Promise<OneConnectTokens>;
   /** Refreshes only when the access token or the refresh token expires
    *  within `withinMs`, and returns the pair that is current afterwards.
-   *  For background jobs: a frequent run keeps access tokens warm, and a
-   *  daily run with a window of days keeps idle users' 30-day refresh
-   *  tokens from running out. */
+   *  For the app's scheduled job: a daily run with a window of days
+   *  renews each user's pair before the 30-day refresh token runs out. */
   refreshIfExpiring: (
     userId: string,
     options?: RefreshIfExpiringOptions,

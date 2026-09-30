@@ -291,6 +291,17 @@ function refreshJwt(id: string, expiresInMs: number): string {
   return jwt({ jti: id, token_type: "refresh", exp: Math.floor((Date.now() + expiresInMs) / 1000) });
 }
 
+/** A refresh token issued `ageMs` ago, as One mints them: 30 days of life. */
+function agedRefreshJwt(id: string, ageMs: number, lifeMs = 30 * DAY): string {
+  const issuedAt = Date.now() - ageMs;
+  return jwt({
+    jti: id,
+    token_type: "refresh",
+    iat: Math.floor(issuedAt / 1000),
+    exp: Math.floor((issuedAt + lifeMs) / 1000),
+  });
+}
+
 /** Resolves when the test calls the returned `release`. */
 function deferred<T>() {
   let release!: (value: T) => void;
@@ -370,7 +381,7 @@ describe("refresh", () => {
     expect(store.clearCalls).toEqual([{ userId: "u1", failed: expiring() }]);
   });
 
-  it("retires an expired refresh token without calling One", async () => {
+  it("asks to connect again once both tokens have run out, without calling One", async () => {
     const store = sharedStore();
     store.tokens.set("u1", expiring(refreshJwt("r1", -HOUR)));
     const oneConnect = createOneConnect({ ...config, tokenStore: store });
@@ -394,6 +405,25 @@ describe("refresh", () => {
     });
     await expect(oneConnect.getAccessToken("u1")).resolves.toBe("new");
     expect(store.tokens.get("u1")).toEqual(fresh);
+    expect(store.clearCalls).toHaveLength(0);
+  });
+
+  it("keeps using an access token that outlives its refresh token", async () => {
+    // A 1-year lifetime, and nobody refreshed within the refresh token's 30 days.
+    const store = sharedStore();
+    const pair = {
+      accessToken: "a1",
+      refreshToken: agedRefreshJwt("r1", 40 * DAY),
+      expiresAt: Date.now() + 325 * DAY,
+    };
+    store.tokens.set("u1", pair);
+    const oneConnect = createOneConnect({ ...config, tokenStore: store });
+
+    await expect(oneConnect.getAccessToken("u1")).resolves.toBe("a1");
+    await expect(oneConnect.refreshIfExpiring("u1", { withinMs: 7 * DAY })).resolves.toEqual(pair);
+    await expect(oneConnect.refreshTokens("u1")).resolves.toEqual(pair);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(store.tokens.get("u1")).toEqual(pair);
     expect(store.clearCalls).toHaveLength(0);
   });
 
