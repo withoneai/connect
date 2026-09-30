@@ -3,6 +3,42 @@
  * the app's server and holds the client secret.
  */
 
+/**
+ * How the app holds a user's grant.
+ *
+ * - `"key"`: the app's connect key plus a permanent id per user. Nothing
+ *   expires, so there is nothing to refresh. The default.
+ * - `"token"`: an access token and a refresh token per user, which the
+ *   SDK keeps fresh.
+ */
+export type OneConnectMode = "key" | "token";
+
+/** Key mode: who a stored user is to One, and where their grant lives. */
+export interface OneConnectUserReference {
+  /** One's permanent id for this user, for this app: `cu_…`. */
+  connectUserId: string;
+  /** The organization the user granted from; absent for their personal
+   *  space. */
+  organizationId?: string;
+  /** The project the user granted from, when it was one. */
+  projectId?: string;
+}
+
+/**
+ * Key mode: where the app keeps the one value the SDK gives it per user.
+ * A single string, written when the user connects and the same until
+ * they connect again, so one column on the app's user row is enough.
+ * `userId` is the app's own id for its user.
+ *
+ * It is an identifier, not a credential: it does nothing without the
+ * app's connect key. No lock is needed, because nothing rotates.
+ */
+export interface OneConnectUserStore {
+  saveUser: (userId: string, reference: string) => Promise<void>;
+  loadUser: (userId: string) => Promise<string | null>;
+  clearUser: (userId: string) => Promise<void>;
+}
+
 /** What the app stores per user after the exchange. */
 export interface OneConnectTokens {
   accessToken: string;
@@ -50,11 +86,14 @@ export interface OneConnectTokenStore {
 
 export interface RefreshIfExpiringOptions {
   /** Refresh when the access token or the refresh token expires within
-   *  this many milliseconds. One minute when omitted. */
+   *  this many milliseconds. One minute when omitted. A refresh token
+   *  that has already run out cannot be refreshed: the pair is returned
+   *  as it is while its access token still works. */
   withinMs?: number;
 }
 
-export interface OneConnectServerConfig {
+/** What every app configures, whichever mode it uses. */
+export interface OneConnectBaseConfig {
   /** The app's client id from the dashboard. */
   clientId: string;
   /** The app's client secret. Server only. */
@@ -73,8 +112,38 @@ export interface OneConnectServerConfig {
   /** OAuth scopes. All three tenancy tiers when omitted, so the user may
    *  grant from any space. */
   scopes?: string[];
-  tokenStore: OneConnectTokenStore;
 }
+
+/**
+ * Key mode, the default: pass the app's connect key and a place to keep
+ * one value per user.
+ */
+export interface OneConnectKeyConfig extends OneConnectBaseConfig {
+  mode?: "key";
+  /** The app's connect key, minted on the app's page in the dashboard.
+   *  Server only. One key per environment. */
+  connectKey: string;
+  userStore: OneConnectUserStore;
+  tokenStore?: never;
+}
+
+/**
+ * Token mode: pass a token store and the SDK keeps each user's tokens
+ * fresh.
+ */
+export interface OneConnectTokenConfig extends OneConnectBaseConfig {
+  mode?: "token";
+  tokenStore: OneConnectTokenStore;
+  connectKey?: never;
+  userStore?: never;
+}
+
+/**
+ * The mode is whichever credential is configured: a `connectKey` is key
+ * mode, a `tokenStore` alone is token mode. Set `mode` to say so
+ * explicitly.
+ */
+export type OneConnectServerConfig = OneConnectKeyConfig | OneConnectTokenConfig;
 
 /** The transaction cookie the authorize leg sets and the callback reads. */
 export interface OneConnectCookie {
@@ -170,20 +239,26 @@ export interface RunActionResult {
   status: number;
   ok: boolean;
   /** True when One refused the call because it is outside the grant.
-   *  The provider was never called. Do not retry. */
+   *  The provider was never called. Do not retry. Key mode sets it; in
+   *  token mode it stays false today, so treat any 403 there as refused. */
   blockedByGrant: boolean;
   data: unknown;
 }
 
 /**
- * - `not_connected`: no tokens are stored for this user.
- * - `refresh_failed`: One declared the grant dead (revoked, expired or
- *   reused). The tokens were cleared; ask the user to connect again.
+ * - `not_connected`: nothing is stored for this user.
+ * - `reconnect_required` (key mode): One will not act for this user.
+ *   Their consent was revoked, or the app is deactivated. What the app
+ *   stored is kept; ask the user to connect again.
+ * - `refresh_failed` (token mode): One declared the grant dead (revoked,
+ *   expired or reused). The tokens were cleared; ask the user to connect
+ *   again.
  * - `request_failed`: One answered with an error or could not be
- *   reached. During a refresh the tokens are kept, so retry later.
+ *   reached. Nothing stored was changed, so retry later.
  */
 export type OneConnectErrorCode =
   | "not_connected"
+  | "reconnect_required"
   | "refresh_failed"
   | "request_failed";
 

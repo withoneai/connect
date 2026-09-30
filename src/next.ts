@@ -14,7 +14,7 @@
  * That serves /api/one/authorize and /api/one/callback. Register
  * `https://yourapp.com/api/one/callback` as the app's redirect URI.
  */
-import type { OneConnect } from "./server";
+import type { OneConnectClient } from "./server";
 
 export interface OneConnectRoutesOptions {
   /** The app's own id for the signed-in user, or null when nobody is
@@ -80,7 +80,7 @@ export function routeFor(url: string): string {
 }
 
 export function createOneConnectRoutes(
-  oneConnect: OneConnect,
+  oneConnect: Pick<OneConnectClient, "startAuthorization" | "completeAuthorization">,
   options: OneConnectRoutesOptions,
 ): OneConnectRoutes {
   const cookiePath = (): string =>
