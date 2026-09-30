@@ -17,7 +17,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 
 import { createOneConnectRoutes, type OneConnectRoutesOptions } from "@withone/connect/next";
-import type { OneConnect } from "./server";
+import type { OneConnectClient } from "./server";
 
 export interface OneConnectNodeOptions {
   /** The app's own id for the signed-in user, or null when nobody is
@@ -76,7 +76,7 @@ async function send(response: ServerResponse, web: Response): Promise<void> {
 }
 
 export function createOneConnectHandlers(
-  oneConnect: OneConnect,
+  oneConnect: Pick<OneConnectClient, "startAuthorization" | "completeAuthorization">,
   options: OneConnectNodeOptions,
 ): OneConnectHandlers {
   // The web adapter receives a Request; the Node callbacks want the
