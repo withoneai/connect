@@ -110,20 +110,21 @@ import { ConnectButton } from "@withone/connect/react";
 
 <ConnectButton
   authorizeUrl="/api/one/authorize"
-  platforms={["gmail", "stripe"]}   // connector slugs
+  logos={["gmail", "stripe"]}       // connector slugs, decoration only
   connected={hasGrant}              // from the server: await oneConnect.isConnected(userId)
   onSuccess={() => { /* refetch app state */ }}
   onError={(message) => { /* show message */ }}
 />
 ```
 
-Optional props: `variant` ("default" | "accent" | "block"), `accentColor`,
-`size` ("sm" | "md" | "lg"), `fullWidth`, `theme` ("light" | "dark" | "auto"),
-`label`, `description`, `disabled`.
+Optional props: `variant` ("default" | "accent" | "block"), `size` ("sm" |
+"md" | "lg"), `fullWidth`, `theme` ("light" | "dark" | "auto"), `label`,
+`description`, `disabled`. The accent variant's colours come from the host's
+`--one-connect-accent` and `--one-connect-accent-fg` CSS variables.
 
 Vue: `@withone/connect/vue`, same props. Svelte: `use:connectButton` from
 `@withone/connect/svelte`. Anything else: `import "@withone/connect"` and use
-`<one-connect-button authorize-url="/api/one/authorize" platforms="gmail, stripe">`.
+`<one-connect-button authorize-url="/api/one/authorize" logos="gmail, stripe">`.
 A custom button in React: `useOneConnect({ authorizeUrl })` returns `{ open, status }`.
 
 ## 6 - Calling One with the grant

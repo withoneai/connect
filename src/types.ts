@@ -31,8 +31,6 @@ export interface OneConnectFlowOptions {
   /** Theme for One's hosted page. Carried on the URL fragment, which
    *  survives the redirect chain, so the backend forwards nothing. */
   connectTheme?: OneConnectTheme;
-  /** @deprecated Renamed to `connectTheme`; removed in the next minor. */
-  appTheme?: OneConnectTheme;
   /** The grant completed and the backend stored the tokens. Fires once
    *  per page load, on the first flow still mounted when the tab
    *  returns. Treat it as a hint to refetch: your server is the truth. */
@@ -62,19 +60,25 @@ export interface OneConnectReturn {
 }
 
 /**
- * A connector chip on the button. Pass One's connector slug ("stripe",
+ * A logo chip on the button. Pass One's connector slug ("stripe",
  * "google-calendar") and the SDK shows its logo and name; pass an
- * object to override either.
+ * object to override either. Decoration only: what One asks the user
+ * for comes from the app's permission set, not from this list.
  */
-export type ConnectButtonPlatformInput =
+export type ConnectButtonLogoInput =
   string | { slug?: string; name?: string; imageUrl?: string };
 
 /** A normalized chip: what the button actually draws. */
-export interface ConnectButtonPlatform {
+export interface ConnectButtonLogo {
   slug: string;
   name: string;
   imageUrl: string;
 }
+
+/** @deprecated Renamed to `ConnectButtonLogoInput`; removed in the next minor. */
+export type ConnectButtonPlatformInput = ConnectButtonLogoInput;
+/** @deprecated Renamed to `ConnectButtonLogo`; removed in the next minor. */
+export type ConnectButtonPlatform = ConnectButtonLogo;
 
 export type ConnectButtonVariant = "default" | "accent" | "block";
 export type ConnectButtonSize = "sm" | "md" | "lg";
@@ -85,17 +89,22 @@ export type ConnectButtonState = "idle" | "connecting" | "connected";
 export interface ConnectButtonProps {
   /** The app's own backend authorize route; relative is fine. */
   authorizeUrl: string;
-  /** Connector slugs, or objects that override the name or the logo.
-   *  The first three draw as logos; the rest fold into a "+N" chip. */
-  platforms?: ConnectButtonPlatformInput[];
+  /** Logos to draw on the button: connector slugs, or objects that
+   *  override the name or the image. The first three draw; the rest fold
+   *  into a "+N" chip. Decoration only; the permission set decides what
+   *  One asks for. */
+  logos?: ConnectButtonLogoInput[];
+  /** @deprecated Renamed to `logos`; removed in the next minor. */
+  platforms?: ConnectButtonLogoInput[];
   /** Whether this user has a live grant, from your server. When set, it
    *  decides the Connected state. When omitted, the button shows
    *  Connected only right after a successful return. */
   connected?: boolean;
   /** Not clickable, for example until terms are accepted. */
   disabled?: boolean;
-  /** default = neutral, accent = your brand colour, block = a card with
-   *  a description and a "Secured by One" foot. */
+  /** default = neutral, accent = your brand colour (set
+   *  `--one-connect-accent` and `--one-connect-accent-fg` on the host),
+   *  block = a card with a description and a "Secured by One" foot. */
   variant?: ConnectButtonVariant;
   size?: ConnectButtonSize;
   /** Stretches to the width of its container. */
@@ -104,11 +113,6 @@ export interface ConnectButtonProps {
   theme?: ConnectButtonTheme;
   /** Theme of One's hosted page. */
   connectTheme?: OneConnectTheme;
-  /** @deprecated Renamed to `connectTheme`; removed in the next minor. */
-  appTheme?: OneConnectTheme;
-  /** Fill of the accent variant; One's lime when omitted. The label is
-   *  black or white, whichever reads better on it. */
-  accentColor?: string;
   /** "Connect your apps" unless set. */
   label?: string;
   /** "Connected" unless set. */

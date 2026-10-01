@@ -20,8 +20,10 @@ import type {
  * custom properties set through the CSSOM, which such a policy allows.
  *
  * Theming hooks for the host page: `--one-connect-font`,
- * `--one-connect-radius`, and `::part(button)` / `::part(label)` on the
- * host (`one-connect-button`, or `.one-connect` for the wrappers).
+ * `--one-connect-radius`, `--one-connect-accent` and
+ * `--one-connect-accent-fg` (the accent variant's fill and text), and
+ * `::part(button)` / `::part(label)` on the host (`one-connect-button`,
+ * or `.one-connect` for the wrappers).
  */
 
 const MAX_VISIBLE_CHIPS = 3;
@@ -129,57 +131,6 @@ function adoptStyles(root: ShadowRoot): void {
   root.appendChild(style);
 }
 
-/* ── Accent contrast ──────────────────────────────────────────────── */
-
-function parseRgb(color: string): [number, number, number] | null {
-  const value = color.trim().toLowerCase();
-  const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/.exec(value);
-  if (hex) {
-    const digits = hex[1].length === 3 ? hex[1].replace(/./g, "$&$&") : hex[1];
-    return [0, 2, 4].map((i) => parseInt(digits.slice(i, i + 2), 16)) as [
-      number,
-      number,
-      number,
-    ];
-  }
-  const rgb = /^rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)/.exec(value);
-  return rgb ? [Number(rgb[1]), Number(rgb[2]), Number(rgb[3])] : null;
-}
-
-/** Any CSS colour to sRGB, through a canvas when it is not already hex
- *  or rgb() ("navy", "hsl(…)"). Null when the browser cannot say. */
-function toRgb(color: string): [number, number, number] | null {
-  const direct = parseRgb(color);
-  if (direct) return direct;
-  try {
-    const context = document.createElement("canvas").getContext("2d");
-    if (!context) return null;
-    context.fillStyle = "#000";
-    context.fillStyle = color;
-    return parseRgb(String(context.fillStyle));
-  } catch {
-    return null;
-  }
-}
-
-const luminance = ([r, g, b]: [number, number, number]): number => {
-  const channel = (c: number) => {
-    const s = c / 255;
-    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
-  };
-  return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
-};
-
-/** Black or white, whichever has the higher WCAG contrast on `color`. */
-export function readableTextOn(color: string): string {
-  const rgb = toRgb(color);
-  if (!rgb) return CARBON;
-  const l = luminance(rgb);
-  const onWhite = 1.05 / (l + 0.05);
-  const onCarbon = (l + 0.05) / (luminance([10, 12, 11]) + 0.05);
-  return onWhite > onCarbon ? WHITE : CARBON;
-}
-
 /* ── Rendering ────────────────────────────────────────────────────── */
 
 const el = <K extends keyof HTMLElementTagNameMap>(
@@ -200,7 +151,7 @@ const icon = (svg: string, className = "icon"): HTMLSpanElement => {
 };
 
 function buildStack(props: ConnectButtonProps): HTMLElement | null {
-  const platforms = normalizePlatforms(props.platforms);
+  const platforms = normalizePlatforms(props.logos ?? props.platforms);
   if (platforms.length === 0) return null;
   const stack = el("span", "stack");
   stack.setAttribute("aria-hidden", "true");
@@ -230,7 +181,7 @@ const flowOptions = (
   handlers: Pick<OneConnectFlowOptions, "onSuccess" | "onError" | "onCancel">,
 ): OneConnectFlowOptions => ({
   authorizeUrl: props.authorizeUrl,
-  connectTheme: props.connectTheme ?? props.appTheme,
+  connectTheme: props.connectTheme,
   ...handlers,
 });
 
@@ -310,22 +261,6 @@ export function renderConnectButton(
         : current === "connected"
           ? (props.connectedLabel ?? "Connected")
           : (props.label ?? "Connect your apps");
-
-    // Colour props travel as custom properties on the button inside the
-    // shadow root, set through the CSSOM: allowed under a strict CSP, and
-    // never written to the host, whose attributes belong to whoever
-    // rendered it (a server-rendered page must hydrate unchanged).
-    if (variant === "accent") {
-      const accent = props.accentColor?.trim() || LIME;
-      button.style.setProperty("--one-connect-accent", accent);
-      button.style.setProperty(
-        "--one-connect-accent-fg",
-        readableTextOn(accent),
-      );
-    } else {
-      button.style.removeProperty("--one-connect-accent");
-      button.style.removeProperty("--one-connect-accent-fg");
-    }
 
     button.dataset.variant = variant;
     button.dataset.size = props.size ?? "md";
@@ -438,6 +373,7 @@ export function mountConnectButton(
 
 const ATTRIBUTES = [
   "authorize-url",
+  "logos",
   "platforms",
   "connected",
   "disabled",
@@ -446,8 +382,6 @@ const ATTRIBUTES = [
   "full-width",
   "theme",
   "connect-theme",
-  "app-theme",
-  "accent-color",
   "label",
   "connected-label",
   "description",
@@ -510,17 +444,16 @@ export function registerConnectButton(): void {
     private props(authorizeUrl: string): ConnectButtonProps {
       return {
         authorizeUrl,
-        platforms: parsePlatformsAttribute(this.getAttribute("platforms")),
+        logos: parsePlatformsAttribute(
+          this.getAttribute("logos") ?? this.getAttribute("platforms"),
+        ),
         connected: flag(this, "connected"),
         disabled: flag(this, "disabled"),
         variant: attributeAs(this, "variant", ["default", "accent", "block"]),
         size: attributeAs(this, "size", ["sm", "md", "lg"]),
         fullWidth: flag(this, "full-width"),
         theme: attributeAs(this, "theme", ["light", "dark", "auto"]),
-        connectTheme:
-          attributeAs(this, "connect-theme", ["light", "dark"]) ??
-          attributeAs(this, "app-theme", ["light", "dark"]),
-        accentColor: this.getAttribute("accent-color") ?? undefined,
+        connectTheme: attributeAs(this, "connect-theme", ["light", "dark"]),
         label: this.getAttribute("label") ?? undefined,
         connectedLabel: this.getAttribute("connected-label") ?? undefined,
         description: this.getAttribute("description") ?? undefined,

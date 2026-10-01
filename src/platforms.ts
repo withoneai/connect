@@ -94,7 +94,7 @@ export function normalizePlatforms(
 }
 
 /**
- * The `platforms` attribute on <one-connect-button>: a comma list of
+ * The `logos` attribute on <one-connect-button>: a comma list of
  * slugs ("stripe, notion") or, for overrides, a JSON array of
  * {slug, name, imageUrl} objects.
  */

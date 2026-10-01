@@ -6,6 +6,8 @@ export {
 } from "./button";
 export type {
   ConnectButtonHandle,
+  ConnectButtonLogo,
+  ConnectButtonLogoInput,
   ConnectButtonPlatform,
   ConnectButtonPlatformInput,
   ConnectButtonProps,

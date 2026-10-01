@@ -5,7 +5,7 @@
  * Svelte compiler or dependency is involved:
  *
  *   <div use:connectButton={{ authorizeUrl: "/api/one/authorize",
- *     platforms: ["stripe", "notion"], connected: data.hasOneGrant,
+ *     logos: ["stripe", "notion"], connected: data.hasOneGrant,
  *     onSuccess: () => { ... } }} />
  */
 import {

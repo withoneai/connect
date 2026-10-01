@@ -92,7 +92,7 @@ function bindPageshow(): void {
 }
 
 const authorizeUrlFor = (options: OneConnectFlowOptions): string => {
-  const theme = options.connectTheme ?? options.appTheme;
+  const theme = options.connectTheme;
   try {
     const url = new URL(options.authorizeUrl, window.location.origin);
     if (theme) url.hash = `${THEME_PARAM}=${theme}`;
