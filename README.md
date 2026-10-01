@@ -28,7 +28,7 @@ You add three things: a button, two backend routes, and the calls you make with 
 Browser                    Your server                          One
 <ConnectButton>  ──────►   GET /api/one/authorize  ──302──►  hosted page: sign in, pick tools, set access
                            GET /api/one/callback   ◄──302──  ?code&state
-                             saves the grant for the user, redirects home
+                             saves one id for the user, redirects home
 onSuccess()      ◄──────
 later:                     oneConnect.runAction(userId, …)  ──►  One, grant enforced
 ```
@@ -45,9 +45,12 @@ Using a coding agent? `npx skills add withoneai/connect` teaches it the whole se
 
 Dashboard → **Developers → Connect → New app**. Register your callback URL exactly, for example `https://yourapp.com/api/one/callback`. Optionally choose the tools and access levels to ask for; the consent page lists them in the order you add them.
 
+Then, on the app's page, under **Credentials → Connect keys**, create a key with your dashboard on Production. It is shown once.
+
 ```env
 ONE_CLIENT_ID=…
 ONE_CLIENT_SECRET=one_secret_…                        # server only
+ONE_CONNECT_KEY=sk_live_…                             # server only
 ONE_REDIRECT_URI=https://yourapp.com/api/one/callback  # exactly the registered URL
 ONE_PERMISSION_SET=…                                  # optional: the tools you ask for
 ```
@@ -98,7 +101,7 @@ To match your design, set `--one-connect-font` and `--one-connect-radius`, or st
 
 ## 3 · The server client
 
-Your server keeps an access token and a refresh token for each user who connects. This is **token mode**, and it is the one to use.
+Your server holds one **connect key** for the app and saves one id per user who connects. Nothing expires and nothing is refreshed: One checks the user's consent on every call. This is **key mode**, the default.
 
 ```ts
 // lib/one.ts
@@ -109,17 +112,16 @@ export const oneConnect = createOneConnect({
   clientSecret: process.env.ONE_CLIENT_SECRET!,
   redirectUri: process.env.ONE_REDIRECT_URI!,
   permissionSet: process.env.ONE_PERMISSION_SET,
-  tokenStore: {
-    saveTokens: (userId, tokens) => db.oneTokens.upsert(userId, tokens),
-    loadTokens: (userId) => db.oneTokens.find(userId),
-    clearTokens: (userId) => db.oneTokens.delete(userId),
+  connectKey: process.env.ONE_CONNECT_KEY!,
+  userStore: {
+    saveUser: (userId, reference) => db.users.update(userId, { oneConnect: reference }),
+    loadUser: async (userId) => (await db.users.find(userId))?.oneConnect ?? null,
+    clearUser: (userId) => db.users.update(userId, { oneConnect: null }),
   },
 });
 ```
 
-Store the tokens in your database, encrypted, keyed by your user id.
-
-Running more than one server or a background worker? Add `withLock(userId, run)` to your token store, for example a Postgres advisory lock. Two servers refreshing at once would otherwise disconnect the user.
+`reference` is one short string: the user's permanent One id, plus the space they granted from. Save it in one column and hand it back unchanged. It is an identifier, not a secret, and it stays the same if the user disconnects and connects again.
 
 ## 4 · The two routes
 
@@ -147,24 +149,55 @@ const reply = await oneConnect.runAction(userId, {
   method: actions[0].method,
   path: actions[0].path,
 });
-// { status, ok, data }
+// { status, ok, blockedByGrant, data }
 ```
 
-You never set a header: the client adds the user's credential to every call it makes.
+You never set a header: the client adds the connect key and the user's id to every call it makes.
 
-A `403` means the call is outside what the user granted. Don't retry it.
+A `403` with `blockedByGrant: true` means the call is outside what the user granted. Don't retry it.
 
 Errors are `OneConnectError` with a `code`:
 
 | `code` | What it means | What to do |
 |---|---|---|
 | `not_connected` | Nothing is stored for this user. | Show the Connect button. |
-| `refresh_failed` | The grant ended (revoked or expired). The tokens were cleared. | Ask the user to connect again. |
+| `reconnect_required` | One will not act for this user: they revoked access, or the app is deactivated. Your stored value is kept. | Ask the user to connect again. |
 | `request_failed` | One answered with an error or could not be reached. Nothing stored changed. | Retry later. |
 
-## 6 · Keeping users connected
+## 6 · Key mode notes
 
-Tokens expire, and two things keep them fresh. One is automatic. The other is yours to run.
+- Keep the connect key on the server, in an environment variable. It is bound to your app and does nothing without a user's id.
+- Connect keys work in Production only. Create the key with your dashboard on Production.
+- `isConnected(userId)` says whether the user has connected before. One confirms the consent on each call, so a user who revoked is found by the next call throwing `reconnect_required`.
+- `oneConnect.getConnectUserId(userId)` returns the user's One id (`cu_…`) if you want it for your own records.
+- Lost or leaked a key? Create another on the app's page, move your servers to it, then revoke the old one there.
+
+To ask for more tools later, edit your app's tools in the dashboard. Users see only the new ones the next time they connect.
+
+## 7 · Token mode
+
+The other way to hold a grant: your server stores an access token and a refresh token per user, as a standard OAuth client. The button, the routes and the calls stay the same. Use it when you need bearer tokens, or when the app already has them; an app that passes only a `tokenStore` keeps running in token mode with no change.
+
+```ts
+export const oneConnect = createOneConnect({
+  clientId: process.env.ONE_CLIENT_ID!,
+  clientSecret: process.env.ONE_CLIENT_SECRET!,
+  redirectUri: process.env.ONE_REDIRECT_URI!,
+  permissionSet: process.env.ONE_PERMISSION_SET,
+  tokenStore: {
+    saveTokens: (userId, tokens) => db.oneTokens.upsert(userId, tokens),
+    loadTokens: (userId) => db.oneTokens.find(userId),
+    clearTokens: (userId) => db.oneTokens.delete(userId),
+  },
+});
+```
+
+- Store the tokens in your database, encrypted, keyed by your user id.
+- Running more than one server or a background worker? Add `withLock(userId, run)` to your token store, for example a Postgres advisory lock. Two servers refreshing at once would otherwise disconnect the user.
+- When a user revokes access, the next refresh throws `refresh_failed` and the tokens are cleared. Ask them to connect again.
+- A `403` means the call is outside what the user granted; `blockedByGrant` stays `false` in token mode.
+
+**Keeping users connected.** Tokens expire, and two things keep them fresh. One is automatic. The other is yours to run.
 
 | | Who does it | When |
 |---|---|---|
@@ -178,42 +211,9 @@ for (const userId of await db.oneTokens.allUserIds()) {
 }
 ```
 
-The job renews both tokens when either is within 3 days of expiring. Without it, a user who stays away for 30 days has to connect again: the refresh token lives 30 days, and only a live refresh token can renew the pair.
+The job renews both tokens when either is within 3 days of expiring. Without it, a user who stays away for 30 days has to connect again: the refresh token lives 30 days, and only a live refresh token can renew the pair. The access token lives as long as your app's **Token lifetime** says (30 days unless you changed it under **Advanced**); keep the job's window shorter than that, or every run refreshes.
 
-The access token lives as long as your app's **Token lifetime** says: 30 days unless you changed it under **Advanced** when creating or editing the app. Keep the job's window shorter than that, or every run refreshes.
-
-To ask for more tools later, edit your app's tools in the dashboard. Users see only the new ones the next time they connect.
-
-## 7 · Key mode
-
-A second way to hold a grant: one **connect key** for your app and one permanent id per user, with nothing to refresh. The button, the routes and the calls stay the same.
-
-Two limits today, so use token mode unless you have a reason not to:
-
-- `listActions` does not work in key mode yet. Your app has to know the actions it runs.
-- It works in Production only. Create the key with your dashboard on Production.
-
-Create the key on your app's page, under **Credentials → Connect key**. It is shown once. Keep it on the server as `ONE_CONNECT_KEY`.
-
-```ts
-export const oneConnect = createOneConnect({
-  clientId: process.env.ONE_CLIENT_ID!,
-  clientSecret: process.env.ONE_CLIENT_SECRET!,
-  redirectUri: process.env.ONE_REDIRECT_URI!,
-  permissionSet: process.env.ONE_PERMISSION_SET,
-  connectKey: process.env.ONE_CONNECT_KEY!,
-  userStore: {
-    saveUser: (userId, reference) => db.users.update(userId, { oneConnect: reference }),
-    loadUser: async (userId) => (await db.users.find(userId))?.oneConnect ?? null,
-    clearUser: (userId) => db.users.update(userId, { oneConnect: null }),
-  },
-});
-```
-
-- `reference` is one short string. Save it in one column and hand it back unchanged. It is an identifier, not a secret.
-- When a user revokes access, the next call throws `reconnect_required` instead of `refresh_failed`. Ask them to connect again; your stored value is kept.
-- A `403` reply carries `blockedByGrant: true` when the call is outside what the user granted.
-- The mode is whichever credential you pass: `tokenStore` for token mode, `connectKey` and `userStore` for key mode. `oneConnect.mode` tells you which one is running.
+The mode is whichever credential you pass: `connectKey` and `userStore` for key mode, `tokenStore` for token mode. `oneConnect.mode` tells you which one is running.
 
 ## License
 
