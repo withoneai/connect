@@ -128,22 +128,34 @@ A custom button in React: `useOneConnect({ authorizeUrl })` returns `{ open, sta
 
 ## 6 - Calling One with the grant
 
+The same four steps the One CLI takes: find the action, read its knowledge,
+run it. Always read the knowledge before running an action for the first
+time; it names the required fields, the encoding and any header.
+
 ```ts
-const connections = await oneConnect.listConnections(userId);   // [{ key, platform, access }]
-const actions = await oneConnect.listActions(userId, "gmail");  // [{ _id, title, method, path }]
+const connections = await oneConnect.listConnections(userId);                 // [{ key, platform, access }]
+const [action] = await oneConnect.searchActions(userId, "stripe", "create an invoice");  // best first, 5 by default
+const guide = await oneConnect.getActionKnowledge(userId, action._id);        // { knowledge (Markdown), ioSchema, method, path, tags }
 
 const reply = await oneConnect.runAction(userId, {
   connectionKey: connection.key,
   actionId: action._id,
-  method: action.method,
-  path: action.path,
-  body: payload,
+  body: payload,                              // what the guide asks for
+  pathParams: { calendarId: "primary" },      // values for {{placeholders}} in the path
+  query: { limit: "10" },
+  encoding: "json",                           // or "form" / "multipart", as the guide says
+  headers: {},                                // only when the guide names one
 });
 // { status, ok, blockedByGrant, data }
 ```
 
-Do not set any header. The package adds the connect key and the user's id
-to every call it makes.
+`runAction` takes the method and path from the action, fills the path's
+placeholders, puts the connection key in the body of an action One serves
+itself (tag `custom`), and encodes the body as asked. `listActions(userId,
+platform)` lists a whole catalog when search is not enough.
+
+Do not set any auth header. The package adds the connect key and the
+user's id to every call it makes.
 
 A `403` reply with `blockedByGrant: true` means the call is outside what
 the user granted. Do not retry it.

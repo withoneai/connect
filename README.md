@@ -139,20 +139,46 @@ That file serves `/api/one/authorize` and `/api/one/callback`. For Express or pl
 
 ## 5 · Using the grant
 
-```ts
-const connections = await oneConnect.listConnections(userId);   // what the user granted
-const actions = await oneConnect.listActions(userId, "gmail");  // what a platform can do
+Work the way the One CLI does: find the action, read its knowledge, run it.
 
+```ts
+// 1. what the user granted, with the connection key per tool
+const connections = await oneConnect.listConnections(userId);
+const stripe = connections.find((c) => c.platform === "stripe");
+
+// 2. the actions that fit what you want to do, best first
+const [action] = await oneConnect.searchActions(userId, "stripe", "list invoice items");
+
+// 3. the action's guide: what it does, every field it takes, what it answers
+const guide = await oneConnect.getActionKnowledge(userId, action._id);
+console.log(guide.knowledge);   // Markdown
+
+// 4. run it: the method and path come from the action; you pass the input
 const reply = await oneConnect.runAction(userId, {
-  connectionKey: connections[0].key,
-  actionId: actions[0]._id,
-  method: actions[0].method,
-  path: actions[0].path,
+  connectionKey: stripe.key,
+  actionId: action._id,
+  body: { limit: 10 },
 });
 // { status, ok, blockedByGrant, data }
 ```
 
-You never set a header: the client adds the connect key and the user's id to every call it makes.
+`runAction` does what the guide asks for: it fills `{{placeholders}}` in the path from `pathParams`, puts the connection key in the body of an action One serves itself, and sends the body the way the provider reads it.
+
+```ts
+await oneConnect.runAction(userId, {
+  connectionKey: calendar.key,
+  actionId: action._id,
+  pathParams: { calendarId: "primary" },          // for a path like /calendars/{{calendarId}}/events
+  query: { maxResults: "10" },
+  body: { summary: "Call" },
+  encoding: "form",                               // when the guide says x-www-form-urlencoded; "multipart" for uploads
+  headers: { "Notion-Version": "2022-06-28" },    // when the guide names a header
+});
+```
+
+`listActions(userId, platform)` still lists everything a platform can do, and `runAction` still takes `method` and `path` from it if you'd rather pass them yourself.
+
+You never set an auth header: the client adds the connect key and the user's id to every call it makes.
 
 A `403` with `blockedByGrant: true` means the call is outside what the user granted. Don't retry it.
 

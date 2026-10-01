@@ -221,18 +221,58 @@ export interface PlatformAction {
   title: string;
   method: string;
   path: string;
+  /** One's tags for the action. "custom" marks an action One itself
+   *  serves, which takes the connection key in its body. */
+  tags?: string[];
 }
+
+export interface SearchActionsOptions {
+  /** How many candidates to return. Five when omitted. */
+  limit?: number;
+  /** What the search ranks for: actions to run now (the default), or
+   *  actions to write code and flows against. */
+  mode?: "execute" | "knowledge";
+}
+
+/**
+ * Everything One knows about one action: the guide a caller reads before
+ * running it (`knowledge`, Markdown), the shape of its input, and the
+ * method and path the SDK runs it with.
+ */
+export interface ActionKnowledge extends PlatformAction {
+  tags: string[];
+  /** The action's documentation: what it does, every field it takes,
+   *  what it answers. Markdown. */
+  knowledge: string;
+  /** The input and output shape, when One has one. */
+  ioSchema?: unknown;
+  /** The platform the action belongs to. */
+  platform?: string;
+}
+
+export type ActionBodyEncoding = "json" | "form" | "multipart";
 
 export interface RunActionInput {
   /** From `listConnections`. */
   connectionKey: string;
-  /** From `listActions`. */
+  /** From `searchActions`, `listActions` or `getActionKnowledge`. */
   actionId: string;
-  method: string;
-  /** The action's path, appended to /v1/passthrough. */
-  path: string;
+  /** The action's method. Looked up from `actionId` when omitted. */
+  method?: string;
+  /** The action's path, appended to /v1/passthrough. Looked up from
+   *  `actionId` when omitted. */
+  path?: string;
+  /** Values for the path's `{{placeholders}}`, such as `{ calendarId: "primary" }`. */
+  pathParams?: Record<string, string | number | boolean>;
   body?: unknown;
-  query?: Record<string, string>;
+  query?: Record<string, string | string[]>;
+  /** Extra request headers an action's knowledge asks for, such as a
+   *  provider's version header. */
+  headers?: Record<string, string>;
+  /** How `body` is sent. JSON when omitted; "form" for providers that
+   *  take `application/x-www-form-urlencoded` (nested fields in bracket
+   *  notation); "multipart" for file-style uploads. */
+  encoding?: ActionBodyEncoding;
 }
 
 export interface RunActionResult {
