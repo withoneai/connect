@@ -30,15 +30,14 @@ export interface ConnectButtonProps extends ConnectButtonCoreProps {
 const visualKey = (props: ConnectButtonCoreProps): string =>
   JSON.stringify([
     props.authorizeUrl,
-    props.platforms ?? [],
+    props.logos ?? props.platforms ?? [],
     props.connected,
     props.disabled,
     props.variant,
     props.size,
     props.fullWidth,
     props.theme,
-    props.connectTheme ?? props.appTheme,
-    props.accentColor,
+    props.connectTheme,
     props.label,
     props.connectedLabel,
     props.description,

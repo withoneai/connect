@@ -10,7 +10,6 @@ import { connectButton } from "@withone/connect/svelte";
 import { ConnectButton as VueConnectButton } from "@withone/connect/vue";
 import { createApp, h, nextTick, ref } from "vue";
 
-import { readableTextOn } from "../src/button";
 import { resetPageReturnForTests } from "../src/flow";
 import { ERROR_MESSAGES } from "../src/return";
 
@@ -59,7 +58,7 @@ describe("the button", () => {
   it("renders in a shadow root with its styles adopted, not inline", () => {
     mountConnectButton(container, {
       authorizeUrl: "/api/one/authorize",
-      platforms: ["gmail", "notion"],
+      logos: ["gmail", "notion"],
     });
     const host = container.querySelector(".one-connect")!;
     expect(host.shadowRoot).not.toBeNull();
@@ -190,27 +189,6 @@ describe("the button", () => {
     expect(labelOf(other)).toBe("Connect your apps");
   });
 
-  it("picks readable text for the accent colour", () => {
-    expect(readableTextOn("#1B2A5C")).toBe("#FFFFFF");
-    expect(readableTextOn("#CCFF00")).toBe("#0A0C0B");
-    expect(readableTextOn("rgb(255, 255, 255)")).toBe("#0A0C0B");
-    mountConnectButton(container, {
-      authorizeUrl: "/a",
-      variant: "accent",
-      accentColor: "#1B2A5C",
-    });
-    // On the button inside the shadow root, never on the host.
-    const button = buttonIn(container);
-    expect(button.style.getPropertyValue("--one-connect-accent")).toBe(
-      "#1B2A5C",
-    );
-    expect(button.style.getPropertyValue("--one-connect-accent-fg")).toBe(
-      "#FFFFFF",
-    );
-    const host = container.querySelector<HTMLElement>(".one-connect")!;
-    expect(host.hasAttribute("style")).toBe(false);
-  });
-
   it("names the block card by its title and describes it by its sub-line", () => {
     mountConnectButton(container, {
       authorizeUrl: "/a",
@@ -231,11 +209,23 @@ describe("the button", () => {
   it("shows three logos and folds the rest into +N", () => {
     mountConnectButton(container, {
       authorizeUrl: "/a",
-      platforms: ["gmail", "google-calendar", "notion", "stripe", "hubspot"],
+      logos: ["gmail", "google-calendar", "notion", "stripe", "hubspot"],
     });
     const chips = buttonIn(container).querySelectorAll(".chip");
     expect(chips).toHaveLength(4);
     expect(chips[3].textContent).toBe("+2");
+  });
+
+  it("still draws logos passed under the old `platforms` name", () => {
+    mountConnectButton(container, { authorizeUrl: "/a", platforms: ["gmail"] });
+    expect(buttonIn(container).querySelectorAll(".chip")).toHaveLength(1);
+  });
+
+  it("leaves the accent colour to the host's CSS variables", () => {
+    mountConnectButton(container, { authorizeUrl: "/a", variant: "accent" });
+    const button = buttonIn(container);
+    expect(button.dataset.variant).toBe("accent");
+    expect(button.getAttribute("style")).toBeNull();
   });
 
   it("removes everything on destroy", () => {
@@ -248,13 +238,13 @@ describe("the button", () => {
 describe("<one-connect-button>", () => {
   it("never writes to its own attributes, so a server-rendered page hydrates unchanged", () => {
     container.innerHTML =
-      '<one-connect-button authorize-url="/a" variant="accent" accent-color="#1B2A5C" full-width></one-connect-button>';
+      '<one-connect-button authorize-url="/a" variant="accent" logos="gmail" full-width></one-connect-button>';
     const element = container.querySelector("one-connect-button")!;
     expect(element.shadowRoot?.querySelector("button")).toBeTruthy();
     expect(element.getAttributeNames().sort()).toEqual([
-      "accent-color",
       "authorize-url",
       "full-width",
+      "logos",
       "variant",
     ]);
   });

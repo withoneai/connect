@@ -62,7 +62,7 @@ import { ConnectButton } from "@withone/connect/react";
 
 <ConnectButton
   authorizeUrl="/api/one/authorize"
-  platforms={["gmail", "google-calendar", "stripe"]}
+  logos={["gmail", "google-calendar", "stripe"]}
   connected={user.hasOneGrant}   // from your server
   onSuccess={() => refresh()}
   onError={(message) => showError(message)}
@@ -72,9 +72,9 @@ import { ConnectButton } from "@withone/connect/react";
 | Prop | What it does |
 |---|---|
 | `authorizeUrl` | Your authorize route. Required. |
-| `platforms` | Connector slugs to show as logos. |
+| `logos` | Connector slugs to draw as logos. Decoration only; your permission set decides what One asks for. |
 | `connected` | Whether the user already has a grant, from your server. |
-| `variant` | `default`, `accent` (your brand colour via `accentColor`), or `block` (a card with a `description`). |
+| `variant` | `default`, `accent` (your brand colour, set with `--one-connect-accent` and `--one-connect-accent-fg`), or `block` (a card with a `description`). |
 | `size` | `sm`, `md` or `lg`. |
 | `fullWidth` | Fills its container. |
 | `theme` | `light`, `dark` or `auto`. `connectTheme` sets One's page. |
@@ -85,19 +85,19 @@ import { ConnectButton } from "@withone/connect/react";
 Other frameworks take the same props:
 
 ```vue
-<ConnectButton authorize-url="/api/one/authorize" :platforms="['gmail']" @success="onConnected" />  <!-- @withone/connect/vue -->
+<ConnectButton authorize-url="/api/one/authorize" :logos="['gmail']" @success="onConnected" />  <!-- @withone/connect/vue -->
 ```
 
 ```html
-<one-connect-button authorize-url="/api/one/authorize" platforms="gmail, stripe"></one-connect-button>
+<one-connect-button authorize-url="/api/one/authorize" logos="gmail, stripe"></one-connect-button>
 <script type="module">import "@withone/connect";</script>
 ```
 
-Svelte: `use:connectButton={{ authorizeUrl, platforms }}` from `@withone/connect/svelte`.
+Svelte: `use:connectButton={{ authorizeUrl, logos }}` from `@withone/connect/svelte`.
 
 Your own button in React: `const { open, status } = useOneConnect({ authorizeUrl: "/api/one/authorize" })`.
 
-To match your design, set `--one-connect-font` and `--one-connect-radius`, or style `::part(button)`.
+To match your design, set `--one-connect-font`, `--one-connect-radius`, `--one-connect-accent` and `--one-connect-accent-fg` on the host, or style `::part(button)`.
 
 ## 3 · The server client
 

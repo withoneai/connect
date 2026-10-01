@@ -23,7 +23,7 @@ import type { PropType } from "vue";
 import {
   renderConnectButton,
   type ConnectButtonHandle,
-  type ConnectButtonPlatformInput,
+  type ConnectButtonLogoInput,
   type ConnectButtonProps,
   type ConnectButtonSize,
   type ConnectButtonTheme,
@@ -40,8 +40,13 @@ export const ConnectButton = defineComponent({
   name: "OneConnectButton",
   props: {
     authorizeUrl: { type: String, required: true },
+    logos: {
+      type: Array as PropType<ConnectButtonLogoInput[]>,
+      default: undefined,
+    },
+    /** @deprecated use logos */
     platforms: {
-      type: Array as PropType<ConnectButtonPlatformInput[]>,
+      type: Array as PropType<ConnectButtonLogoInput[]>,
       default: undefined,
     },
     connected: optionalBoolean,
@@ -57,9 +62,6 @@ export const ConnectButton = defineComponent({
       type: String as PropType<OneConnectTheme>,
       default: undefined,
     },
-    /** @deprecated use connectTheme */
-    appTheme: { type: String as PropType<OneConnectTheme>, default: undefined },
-    accentColor: { type: String, default: undefined },
     label: { type: String, default: undefined },
     connectedLabel: { type: String, default: undefined },
     description: { type: String, default: undefined },

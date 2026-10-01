@@ -1,6 +1,6 @@
 {
   "name": "@withone/connect",
-  "version": "0.14.0",
+  "version": "0.15.0",
   "description": "One Connect for your app: the button your users press, the two backend routes as one import, and a server client that calls One with the grant. Users keep their connections in One; your app holds only what they granted.",
   "files": [
     "dist",
