@@ -29,8 +29,12 @@ export interface OneConnectNodeOptions {
   loginHintFor?: (
     request: IncomingMessage,
   ) => Promise<string | null> | string | null;
-  /** Where to send the browser when nobody is signed in. */
+  /** Where to send the browser when nobody is signed in. Answers 401
+   *  when omitted. */
   signInUrl?: string;
+  /** Called after every callback with how it ended; see
+   *  `OneConnectRoutesOptions.onComplete`. */
+  onComplete?: OneConnectRoutesOptions["onComplete"];
 }
 
 export type NodeHandler = (
@@ -80,27 +84,31 @@ export function createOneConnectHandlers(
   options: OneConnectNodeOptions,
 ): OneConnectHandlers {
   // The web adapter receives a Request; the Node callbacks want the
-  // original IncomingMessage, so it is carried alongside by closure.
-  let current: IncomingMessage | null = null;
-  const routeOptions: OneConnectRoutesOptions = {
-    identifyUser: () => options.identifyUser(current as IncomingMessage),
-    loginHintFor: options.loginHintFor
-      ? () => options.loginHintFor!(current as IncomingMessage)
+  // original IncomingMessage. Each Request maps to its own message, so
+  // concurrent requests never read each other's session or login hint.
+  const origin = new WeakMap<Request, IncomingMessage>();
+  const nodeRequestFor = (request: Request): IncomingMessage => {
+    const message = origin.get(request);
+    if (!message) throw new Error("@withone/connect/node: unknown request");
+    return message;
+  };
+  const loginHintFor = options.loginHintFor;
+  const routes = createOneConnectRoutes(oneConnect, {
+    identifyUser: (request) => options.identifyUser(nodeRequestFor(request)),
+    loginHintFor: loginHintFor
+      ? (request) => loginHintFor(nodeRequestFor(request))
       : undefined,
     signInUrl: options.signInUrl,
-  };
-  const routes = createOneConnectRoutes(oneConnect, routeOptions);
+    onComplete: options.onComplete,
+  } satisfies OneConnectRoutesOptions);
 
   const handle = async (
     request: IncomingMessage,
     response: ServerResponse,
   ): Promise<void> => {
-    current = request;
-    try {
-      await send(response, await routes.GET(toWebRequest(request)));
-    } finally {
-      current = null;
-    }
+    const web = toWebRequest(request);
+    origin.set(web, request);
+    await send(response, await routes.GET(web));
   };
 
   return { authorize: handle, callback: handle };

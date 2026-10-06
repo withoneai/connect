@@ -1,6 +1,6 @@
 ---
 name: one-connect
-description: Add One Connect to an application so its users can grant the app scoped, revocable access to their own One-connected tools (Gmail, Slack, Notion, Stripe and 500 more). Use when wiring @withone/connect into an app - the button, the two backend routes, the connect key, and calling One with the grant.
+description: Add One Connect to an application so its users can grant the app scoped, revocable access to their own One-connected tools (Gmail, Slack, Notion, Stripe and 900+ more). Use when wiring @withone/connect into an app - choosing key or token mode, the two backend routes, the Connect button or the app's own button, and calling One with the grant.
 ---
 
 # One Connect
@@ -13,19 +13,31 @@ you wire three things: a button, two routes, and the calls made with the grant.
 Browser                    Your backend                          One
 <ConnectButton>  ------>   GET /api/one/authorize   ---302--->  hosted page: sign in, pick tools, set access
                            GET /api/one/callback    <--302----  ?code&state
-                             saves one id for the user, redirects home
+                             saves the grant for the user, redirects home
                  <------   onSuccess fires
 Later:                     oneConnect.runAction(userId, ...) -> One, grant enforced
 ```
 
-Use **key mode**, described in sections 1 to 7: the app holds one connect
-key and saves one id per user, and nothing is refreshed. Token mode
-(section 9) is the other way to hold the grant; use it only when the human
-asks for it, or when the app already passes a `tokenStore`.
-
 The client secret and the connect key stay on the server.
 
-## 1 - Ask the human for these
+## 1 - Choose the mode
+
+The routes, the button and the calls are the same in both modes. Only what
+the server keeps differs.
+
+| | Key mode (default) | Token mode |
+|---|---|---|
+| Server keeps | one connect key for the app, one id per user | an access and a refresh token per user |
+| Expires | nothing | yes; the app runs a daily refresh job |
+| User revoked | next call throws `reconnect_required` | next refresh throws `refresh_failed` |
+| Call outside the grant | `403`, `blockedByGrant: true` | `403`, `blockedByGrant` stays `false` |
+
+Use **key mode** unless the human asks for token mode, the app needs the
+bearer token itself, or the app already passes a `tokenStore`. Do not switch
+an existing app from one mode to the other unless asked. Sections 2 to 9 are
+key mode; section 10 lists what changes for token mode.
+
+## 2 - Ask the human for these
 
 They create the app in the One dashboard: Developers -> Connect -> New app.
 
@@ -33,14 +45,14 @@ They create the app in the One dashboard: Developers -> Connect -> New app.
 |---|---|
 | `ONE_CLIENT_ID` | From the app. |
 | `ONE_CLIENT_SECRET` | Starts with `one_secret_`. Shown once. |
-| `ONE_CONNECT_KEY` | On the app's page: Credentials -> Connect keys -> Create key, with the dashboard on Production. Shown once. |
+| `ONE_CONNECT_KEY` | Key mode. On the app's page: Credentials -> Connect keys -> Create key, with the dashboard on Production. Shown once. |
 | Redirect URI | Registered on the app. Must match the callback route exactly, e.g. `http://localhost:3000/api/one/callback`. |
-| `ONE_PERMISSION_SET` | Optional. The tools and access levels to ask for. |
+| `ONE_PERMISSION_SET` | Optional. The app's Permission set ID: the tools and access levels to ask for. Without it, the consent page lists the user's connections and they choose. |
 
 Never ask the human to paste the secret or the connect key into the chat.
 Tell them which environment variable to set and read it from there.
 
-## 2 - Environment (server only)
+## 3 - Environment (server only)
 
 ```bash
 ONE_CLIENT_ID=...
@@ -50,7 +62,7 @@ ONE_REDIRECT_URI=https://yourapp.com/api/one/callback
 ONE_PERMISSION_SET=...        # optional
 ```
 
-## 3 - Install and create the client
+## 4 - Install and create the client
 
 ```bash
 npm install @withone/connect
@@ -67,9 +79,9 @@ export const oneConnect = createOneConnect({
   permissionSet: process.env.ONE_PERMISSION_SET,
   connectKey: process.env.ONE_CONNECT_KEY!,
   userStore: {
-    saveUser: (userId, reference) => /* save the string on the app's user row */,
-    loadUser: (userId) => /* read it; null when never connected */,
-    clearUser: (userId) => /* set it to null */,
+    saveUser: async (userId, reference) => { /* save the string on the app's user row */ },
+    loadUser: async (userId) => /* read it; null when never connected */,
+    clearUser: async (userId) => { /* set it to null */ },
   },
 });
 ```
@@ -83,7 +95,10 @@ identifier, not a secret, so it needs no encryption and no lock. The
 package writes it in the callback and reads it on every call; the app
 never passes it anywhere.
 
-## 4 - The two routes
+Optional settings: `returnTo` (where the callback sends the browser, `/` by
+default) and `oneApiUrl` (One's API origin, production by default).
+
+## 5 - The two routes
 
 Next.js App Router (also Remix, SvelteKit, Hono, Bun):
 
@@ -94,16 +109,23 @@ import { oneConnect } from "@/lib/one";
 
 export const { GET } = createOneConnectRoutes(oneConnect, {
   identifyUser: async (request) => /* the signed-in user's id, or null */,
+  signInUrl: "/login",                                    // where signed-out users go; 401 when omitted
   loginHintFor: async (request) => /* their email, optional */,
-  signInUrl: "/login",
+  onComplete: ({ userId, result }) => { /* log result.outcome and, on failure, result.message */ },
 });
 ```
 
-Express or plain Node: `createOneConnectHandlers(oneConnect, { identifyUser })`
-from `@withone/connect/node`, mounted at `/api/one/authorize` and
-`/api/one/callback`.
+Express, Fastify, Koa or plain Node: `createOneConnectHandlers(oneConnect,
+options)` from `@withone/connect/node` takes the same options and returns
+`{ authorize, callback }`, mounted at `/api/one/authorize` and
+`/api/one/callback`. Both routes must share that directory: the state
+cookie is scoped to it.
 
-## 5 - The button
+## 6 - The button
+
+Pick by what the app already has. Each option uses the routes above.
+
+**The ready-made button** (default):
 
 ```tsx
 import { ConnectButton } from "@withone/connect/react";
@@ -118,20 +140,48 @@ import { ConnectButton } from "@withone/connect/react";
 ```
 
 Optional props: `variant` ("default" | "accent" | "block"), `size` ("sm" |
-"md" | "lg"), `fullWidth`, `theme` ("light" | "dark" | "auto"), `label`,
-`description`, `disabled`. The accent variant's colours come from the host's
-`--one-connect-accent` and `--one-connect-accent-fg` CSS variables.
+"md" | "lg"), `fullWidth`, `theme` ("light" | "dark" | "auto"),
+`connectTheme` ("light" | "dark", One's page), `label`, `connectedLabel`,
+`description`, `disabled`, `onCancel`. The accent variant's colours come
+from the host's `--one-connect-accent` and `--one-connect-accent-fg` CSS
+variables.
 
 Vue: `@withone/connect/vue`, same props. Svelte: `use:connectButton` from
 `@withone/connect/svelte`. Anything else: `import "@withone/connect"` and use
 `<one-connect-button authorize-url="/api/one/authorize" logos="gmail, stripe">`.
-A custom button in React: `useOneConnect({ authorizeUrl })` returns `{ open, status }`.
 
-## 6 - Calling One with the grant
+**The app's own button.** When the app has its own design system button,
+keep it and wire the flow to it instead of adding a second style:
 
-The same four steps the One CLI takes: find the action, read its knowledge,
-run it. Always read the knowledge before running an action for the first
-time; it names the required fields, the encoding and any header.
+- React: `useOneConnect` from `@withone/connect/react`.
+
+  ```tsx
+  const { open, status, error } = useOneConnect({ authorizeUrl: "/api/one/authorize", onSuccess: refetch });
+  <Button onClick={open} disabled={status === "connecting"}>Connect your tools</Button>
+  ```
+
+- Any other framework, or none: `createConnectFlow` from `@withone/connect`.
+  Create it once where the button lives (Vue `onMounted`, Svelte `onMount`),
+  call `flow.open()` on click, and `flow.destroy()` when the button goes.
+
+  ```ts
+  const flow = createConnectFlow({ authorizeUrl: "/api/one/authorize", onSuccess, onError, onCancel });
+  button.addEventListener("click", () => flow.open());
+  ```
+
+- No SDK in the browser (server-rendered pages): a plain link,
+  `<a href="/api/one/authorize">`. The user returns with
+  `?one_connect=success`, or `?one_connect=error&one_connect_error=` with
+  `declined`, `expired` or `failed`. Show the app's own text per code, never
+  text from the URL, and remove the parameters after reading them.
+
+Do not build a completion page; the callback redirect is the completion.
+
+## 7 - Calling One with the grant
+
+The same four steps the One CLI takes: list, find the action, read its
+knowledge, run it. Always read the knowledge before running an action for
+the first time; it names the required fields, the encoding and any header.
 
 ```ts
 const connections = await oneConnect.listConnections(userId);                 // [{ key, platform, access }]
@@ -150,13 +200,18 @@ const reply = await oneConnect.runAction(userId, {
 // { status, ok, blockedByGrant, data }
 ```
 
+Each connection's `access` is `{ policy: "full" }`, `{ policy: "methods",
+methods }` or `{ policy: "actions", actions }`; plan from it before calling.
 `runAction` takes the method and path from the action, fills the path's
 placeholders, puts the connection key in the body of an action One serves
 itself (tag `custom`), and encodes the body as asked. `listActions(userId,
-platform)` lists a whole catalog when search is not enough.
+platform)` lists a whole catalog when search is not enough;
+`oneConnect.fetch(userId, path, init)` reaches any other `/v1` endpoint.
 
 Do not set any auth header. The package adds the connect key and the
 user's id to every call it makes.
+
+## 8 - Errors
 
 A `403` reply with `blockedByGrant: true` means the call is outside what
 the user granted. Do not retry it.
@@ -166,18 +221,19 @@ Errors are `OneConnectError` with a `code`. Handle them where the app calls One:
 | `code` | Meaning | Do |
 |---|---|---|
 | `not_connected` | Nothing is stored for this user. | Show the Connect button. |
-| `reconnect_required` | One will not act for this user: they revoked access, or the app is deactivated. The stored value is kept. | Ask the user to connect again. |
+| `reconnect_required` | Key mode: One will not act for this user; they revoked access, or the app is deactivated. The stored value is kept. | Ask the user to connect again. |
+| `refresh_failed` | Token mode: the grant is gone. The tokens are cleared. | Ask the user to connect again. |
 | `request_failed` | One answered with an error or could not be reached. Nothing stored changed. | Retry later. |
 
 ```ts
 import { OneConnectError } from "@withone/connect/server";
 
 try {
-  await oneConnect.runAction(userId, action);
+  await oneConnect.runAction(userId, input);
 } catch (error) {
   if (
     error instanceof OneConnectError &&
-    ["not_connected", "reconnect_required"].includes(error.code)
+    ["not_connected", "reconnect_required", "refresh_failed"].includes(error.code)
   ) {
     // show the Connect button again
   } else {
@@ -187,10 +243,11 @@ try {
 ```
 
 `isConnected(userId)` says the user has connected before. One confirms the
-consent on each call, so a user who revoked is found by the next call
-throwing `reconnect_required`.
+consent on each call, so a user who revoked is found by the next call.
 
-## 7 - Rules
+## 9 - Rules and done
+
+Rules:
 
 - Never put the client secret or the connect key in browser code, logs,
   error reports, source files or prompts. Environment variables only.
@@ -198,14 +255,14 @@ throwing `reconnect_required`.
   the dashboard on Production.
 - Store the per-user string as given.
 - The registered redirect URI and `ONE_REDIRECT_URI` must be identical.
-- Do not build a completion page; the callback redirect is the completion.
 - Do not write OAuth steps or One request headers by hand; use the package.
-- Do not switch an existing app from one mode to the other unless asked.
+- Never show `result.message` or any URL text to users; log it.
 
-## 8 - Done when
+Done when:
 
 1. The button leads to One's page; after signing in and authorizing, the user
-   lands back in the app and `onSuccess` fires.
+   lands back in the app and `onSuccess` fires (or the app reads
+   `?one_connect=success`).
 2. One string is saved for the user.
 3. `listConnections` returns only the granted connections.
 4. `runAction` works for an action inside the grant and returns `403` with
@@ -213,11 +270,10 @@ throwing `reconnect_required`.
 5. After the user revokes the app in their One dashboard, the next call
    fails with `reconnect_required` and the app asks them to connect again.
 
-## 9 - Token mode (only when asked)
+## 10 - Token mode (only when chosen in section 1)
 
-The other way to hold the grant: the app stores an access token and a
-refresh token per user, as a standard OAuth client. The routes, the button
-and the calls are the same. No `ONE_CONNECT_KEY` is needed.
+The app stores an access token and a refresh token per user, as a standard
+OAuth client. No `ONE_CONNECT_KEY` is needed; everything else above holds.
 
 ```ts
 export const oneConnect = createOneConnect({
@@ -226,11 +282,13 @@ export const oneConnect = createOneConnect({
   redirectUri: process.env.ONE_REDIRECT_URI!,
   permissionSet: process.env.ONE_PERMISSION_SET,
   tokenStore: {
-    saveTokens: (userId, tokens) => /* save in the app's database, encrypted */,
-    loadTokens: (userId) => /* read; null when never connected */,
-    clearTokens: (userId) => /* delete */,
+    saveTokens: async (userId, tokens) => { /* save in the app's database, encrypted */ },
+    loadTokens: async (userId) => /* read; null when never connected */,
+    clearTokens: async (userId) => { /* delete */ },
   },
 });
+
+const accessToken = await oneConnect.getAccessToken(userId); // when the app needs the bearer token itself
 ```
 
 - Store tokens encrypted, keyed by the app's user.
@@ -263,6 +321,3 @@ the pair. The access token lives as long as the app's Token lifetime says
 (30 days unless changed under Advanced when creating the app); keep the
 window shorter than that, or every run refreshes. In token mode, "done"
 also means the daily job exists and runs for every connected user.
-
-The mode is whichever credential `createOneConnect` is given: `connectKey`
-and `userStore` for key mode, `tokenStore` for token mode.

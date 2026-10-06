@@ -75,9 +75,9 @@ export interface ConnectButtonLogo {
   imageUrl: string;
 }
 
-/** @deprecated Renamed to `ConnectButtonLogoInput`; removed in the next minor. */
+/** @deprecated Renamed to `ConnectButtonLogoInput`; removed in 0.17.0. */
 export type ConnectButtonPlatformInput = ConnectButtonLogoInput;
-/** @deprecated Renamed to `ConnectButtonLogo`; removed in the next minor. */
+/** @deprecated Renamed to `ConnectButtonLogo`; removed in 0.17.0. */
 export type ConnectButtonPlatform = ConnectButtonLogo;
 
 export type ConnectButtonVariant = "default" | "accent" | "block";
@@ -94,7 +94,7 @@ export interface ConnectButtonProps {
    *  into a "+N" chip. Decoration only; the permission set decides what
    *  One asks for. */
   logos?: ConnectButtonLogoInput[];
-  /** @deprecated Renamed to `logos`; removed in the next minor. */
+  /** @deprecated Renamed to `logos`; removed in 0.17.0. */
   platforms?: ConnectButtonLogoInput[];
   /** Whether this user has a live grant, from your server. When set, it
    *  decides the Connected state. When omitted, the button shows
