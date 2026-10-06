@@ -121,7 +121,7 @@ export interface OneConnectBaseConfig {
 export interface OneConnectKeyConfig extends OneConnectBaseConfig {
   mode?: "key";
   /** The app's connect key, minted on the app's page in the dashboard.
-   *  Server only. One key per environment. */
+   *  Server only. Connect keys work in Production. */
   connectKey: string;
   userStore: OneConnectUserStore;
   tokenStore?: never;

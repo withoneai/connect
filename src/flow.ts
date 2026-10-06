@@ -156,12 +156,6 @@ export function createConnectFlow(
   };
 }
 
-/** @deprecated Renamed to `createConnectFlow` (it is not a React hook;
- *  React apps can use `useOneConnect` from `@withone/connect/react`).
- *  Removed in the next minor. */
-export const useOneConnect = (options: OneConnectFlowOptions): OneConnectFlow =>
-  createConnectFlow(options);
-
 /** Test seam: forget this page load's outcome. */
 export function resetPageReturnForTests(): void {
   pageReturn = undefined;

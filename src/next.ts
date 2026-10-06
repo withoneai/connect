@@ -14,7 +14,7 @@
  * That serves /api/one/authorize and /api/one/callback. Register
  * `https://yourapp.com/api/one/callback` as the app's redirect URI.
  */
-import type { OneConnectClient } from "./server";
+import type { CompleteAuthorizationResult, OneConnectClient } from "./server";
 
 export interface OneConnectRoutesOptions {
   /** The app's own id for the signed-in user, or null when nobody is
@@ -25,6 +25,15 @@ export interface OneConnectRoutesOptions {
   /** Where to send the browser when nobody is signed in. Answers 401
    *  when omitted. */
   signInUrl?: string;
+  /** Called after every callback, before the browser is redirected:
+   *  `result.outcome` is "connected", "declined" or "failed", and
+   *  `result.message` says why a flow failed. For your logs and metrics;
+   *  never show the message to the user. An error it throws is ignored,
+   *  so the user still lands back in the app. */
+  onComplete?: (event: {
+    userId: string;
+    result: CompleteAuthorizationResult;
+  }) => void | Promise<void>;
 }
 
 export interface OneConnectRoutes {
@@ -114,6 +123,13 @@ export function createOneConnectRoutes(
       url: request.url,
       getCookie: (name) => readCookie(request, name),
     });
+    if (options.onComplete) {
+      try {
+        await options.onComplete({ userId: user, result });
+      } catch {
+        /* the app's own hook threw; the redirect still happens */
+      }
+    }
     return redirectWithCookies(
       result.redirectUrl,
       result.clearCookieName
