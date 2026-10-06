@@ -45,7 +45,7 @@ later:                     oneConnect.runAction(userId, …)  ──►  One, gr
 - [5 · Using the grant](#5--using-the-grant)
 - [6 · Errors](#6--errors)
 - [7 · Token mode](#7--token-mode)
-- [Security](#security) · [Troubleshooting](#troubleshooting) · [API reference](#api-reference)
+- [Security](#security) · [Troubleshooting](#troubleshooting) · [Supported versions](#supported-versions) · [API reference](#api-reference) · [Support](#support)
 
 ## Choose how your server holds the grant
 
@@ -121,6 +121,16 @@ export const { GET } = createOneConnectRoutes(oneConnect, {
   loginHintFor: async (request) => (await getSession(request))?.email ?? null, // optional: pre-fills One's sign-in
 });
 ```
+
+`identifyUser` answers one question: which of **your** app's users clicked Connect? Return the id from your own session. One's page then signs the person in to **One** with their email and a code. Those are two different accounts, and the callback joins them:
+
+```
+your session   ── identifyUser ──►  "user_123"     which of your users is this?
+One's page     ── email + code ──►  Maya on One    whose tools are these?
+callback       ── saves Maya's grant on user_123 ──►  later: runAction("user_123", …)
+```
+
+`loginHintFor` only pre-fills the email on One's page. Nobody signed in? `identifyUser` returns null and the route sends them to `signInUrl` (or answers `401`).
 
 That file serves `/api/one/authorize` and `/api/one/callback`. For Express, Fastify, Koa or plain Node, `createOneConnectHandlers` from `@withone/connect/node` takes the same options and returns `{ authorize, callback }` to mount on those two paths.
 
@@ -356,10 +366,25 @@ The job renews both tokens when either is within 3 days of expiring. Without it,
 |---|---|
 | Signed-out users see "Sign in to your account before connecting One." | `identifyUser` returned null. Set `signInUrl` to send them to your sign-in page. |
 | Every attempt ends with `expired` | The state cookie did not reach the callback. Serve both routes from the same directory (`/api/one/authorize` and `/api/one/callback`) on the origin of `ONE_REDIRECT_URI`. An attempt also expires after 30 minutes. |
-| Every attempt ends with `failed` | Usually One refused the code exchange. Check that `ONE_REDIRECT_URI` matches the registered URL exactly and that the client secret is current. Log `result.message` with `onComplete` on the routes to see why. |
+| One answers `invalid redirect_uri` instead of showing its page | `ONE_REDIRECT_URI` is not registered on the app character for character (scheme, host, port, path). Register it, or fix the variable. |
+| Every attempt ends with `failed` | One refused the code exchange, most often because the client secret is wrong or was rotated. Log `result.message` with `onComplete` on the routes to see the reason. |
 | Every call fails with `request_failed`: "One did not accept the connect key" | The key is not this app's, or it was revoked. Create a key on the app's page and update `ONE_CONNECT_KEY`. |
 | Every user's calls throw `reconnect_required` | The app is deactivated. Check that it is active in the dashboard. |
 | A call returns `403` with `blockedByGrant: true` | The action is outside what the user granted. Ask for it in your permission set; users see new tools the next time they connect. |
+
+## Supported versions
+
+| | |
+|---|---|
+| Node.js | 18 or later |
+| React | 17 or later (optional peer dependency) |
+| Vue | 3 or later (optional peer dependency) |
+| Svelte | 3 or later (the `use:` action); no peer dependency |
+| `@withone/connect/next` | Any server with web `Request` and `Response`: Next.js App Router, Remix, SvelteKit, Hono, Bun |
+| `@withone/connect/node` | Node's `http` request and response: Express, Fastify (`reply.raw`), Koa (`ctx.req`/`ctx.res`), plain Node |
+| Browsers | Any browser with Shadow DOM and custom elements; the build targets `> 0.25%, not dead` |
+
+**Versioning.** Until 1.0, a minor version may remove an API that an earlier minor deprecated; every deprecation is marked in the types and in the [release notes](CHANGELOG.md), and stays for at least one minor. Patch versions only fix bugs or docs.
 
 ## API reference
 
@@ -410,6 +435,12 @@ The job renews both tokens when either is within 3 days of expiring. Without it,
 | `useOneConnect(options)` · `/react` | Your own button in React. |
 | `createConnectFlow(options)` | Your own button anywhere. |
 | `readConnectReturn()` | How this page load ended a flow, or null. |
+
+## Support
+
+- Bugs and questions: [GitHub issues](https://github.com/withoneai/connect/issues).
+- Security issues: see [SECURITY.md](SECURITY.md). Please don't open a public issue.
+- Everything else: hello@withone.ai.
 
 ## License
 

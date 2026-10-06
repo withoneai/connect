@@ -115,6 +115,14 @@ export const { GET } = createOneConnectRoutes(oneConnect, {
 });
 ```
 
+`identifyUser` returns the id of the app's own signed-in user, from the
+app's existing session. It is not the email: One's page signs the person
+in to One with their email and a code; this id is which of the app's
+accounts the grant is saved under, and the `userId` every later call
+takes. `loginHintFor` only pre-fills that email. If the app has no
+sign-in, ask the human what to use; for a throwaway demo, one fixed id
+is fine.
+
 Express, Fastify, Koa or plain Node: `createOneConnectHandlers(oneConnect,
 options)` from `@withone/connect/node` takes the same options and returns
 `{ authorize, callback }`, mounted at `/api/one/authorize` and
@@ -254,7 +262,10 @@ Rules:
 - Connect keys work in Production only; the human creates the key with
   the dashboard on Production.
 - Store the per-user string as given.
-- The registered redirect URI and `ONE_REDIRECT_URI` must be identical.
+- The registered redirect URI and `ONE_REDIRECT_URI` must be identical;
+  otherwise One answers `invalid redirect_uri` and never shows its page.
+- A flow that ends with `failed` is usually a wrong or rotated client
+  secret; log `result.message` from `onComplete` to see why.
 - Do not write OAuth steps or One request headers by hand; use the package.
 - Never show `result.message` or any URL text to users; log it.
 
