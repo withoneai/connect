@@ -38,6 +38,8 @@ const visualKey = (props: ConnectButtonCoreProps): string =>
     props.fullWidth,
     props.theme,
     props.connectTheme,
+    props.connector,
+    props.returnTo,
     props.label,
     props.connectedLabel,
     props.description,

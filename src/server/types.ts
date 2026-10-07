@@ -161,6 +161,10 @@ export interface OneConnectCookie {
 export interface StartAuthorizationInput {
   /** Pre-fills the sign-in email on One's page. Never locks it. */
   loginHint?: string;
+  /** Where this one flow returns to: a path on your app ("/chat/42").
+   *  Kept in the flow's cookie, never sent to One. Anything that is not
+   *  a plain path is ignored and the configured `returnTo` applies. */
+  returnTo?: string;
 }
 
 export interface StartAuthorizationResult {

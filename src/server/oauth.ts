@@ -36,18 +36,49 @@ export function txCookieName(state: string): string {
   return `${TX_COOKIE_PREFIX}${state}`;
 }
 
+/** A return path this one flow may use: a path on the app itself. A
+ *  full URL, a protocol-relative one or anything else is dropped, so
+ *  the callback never sends a user to another site. */
+export function appPath(value: string | undefined): string | undefined {
+  if (!value || !value.startsWith("/")) return undefined;
+  if (value.startsWith("//") || value.startsWith("/\\")) return undefined;
+  return value;
+}
+
+/** The cookie value: the verifier, then the flow's own return path when
+ *  it has one. A dot separates them; the verifier is base64url, which
+ *  never contains one, so a value written before 0.17 still reads. */
+export function txCookieValue(verifier: string, returnTo?: string): string {
+  return returnTo
+    ? `${verifier}.${Buffer.from(returnTo).toString("base64url")}`
+    : verifier;
+}
+
+export function parseTxCookieValue(value: string): {
+  verifier: string;
+  returnTo?: string;
+} {
+  const dot = value.indexOf(".");
+  if (dot < 0) return { verifier: value };
+  return {
+    verifier: value.slice(0, dot),
+    returnTo: appPath(Buffer.from(value.slice(dot + 1), "base64url").toString()),
+  };
+}
+
 /** The cookie scoped to the routes that need it: the directory of the
  *  callback path, which is also where the authorize route lives. */
 export function txCookie(
   state: string,
   verifier: string,
   redirectUri: string,
+  returnTo?: string,
 ): OneConnectCookie {
   const url = new URL(redirectUri);
   const path = url.pathname.replace(/\/[^/]*$/, "") || "/";
   return {
     name: txCookieName(state),
-    value: verifier,
+    value: txCookieValue(verifier, returnTo),
     options: {
       httpOnly: true,
       secure: url.protocol === "https:",

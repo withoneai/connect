@@ -14,6 +14,7 @@
  * That serves /api/one/authorize and /api/one/callback. Register
  * `https://yourapp.com/api/one/callback` as the app's redirect URI.
  */
+import { RETURN_TO_PARAM } from "./constants";
 import type { CompleteAuthorizationResult, OneConnectClient } from "./server";
 
 export interface OneConnectRoutesOptions {
@@ -109,7 +110,11 @@ export function createOneConnectRoutes(
     const user = await requireUser(request);
     if (user instanceof Response) return user;
     const loginHint = (await options.loginHintFor?.(request)) ?? undefined;
-    const { redirectUrl, cookie } = oneConnect.startAuthorization({ loginHint });
+    // The browser flow names where this one flow returns to; the client
+    // keeps only a path on the app, so a crafted link goes nowhere else.
+    const returnTo =
+      new URL(request.url).searchParams.get(RETURN_TO_PARAM) ?? undefined;
+    const { redirectUrl, cookie } = oneConnect.startAuthorization({ loginHint, returnTo });
     return redirectWithCookies(redirectUrl, [
       serializeCookie(cookie.name, cookie.value, cookie.options),
     ]);

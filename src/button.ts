@@ -182,6 +182,8 @@ const flowOptions = (
 ): OneConnectFlowOptions => ({
   authorizeUrl: props.authorizeUrl,
   connectTheme: props.connectTheme,
+  connector: props.connector,
+  returnTo: props.returnTo,
   ...handlers,
 });
 
@@ -382,6 +384,8 @@ const ATTRIBUTES = [
   "full-width",
   "theme",
   "connect-theme",
+  "connector",
+  "return-to",
   "label",
   "connected-label",
   "description",
@@ -454,6 +458,8 @@ export function registerConnectButton(): void {
         fullWidth: flag(this, "full-width"),
         theme: attributeAs(this, "theme", ["light", "dark", "auto"]),
         connectTheme: attributeAs(this, "connect-theme", ["light", "dark"]),
+        connector: this.getAttribute("connector") ?? undefined,
+        returnTo: this.getAttribute("return-to") ?? undefined,
         label: this.getAttribute("label") ?? undefined,
         connectedLabel: this.getAttribute("connected-label") ?? undefined,
         description: this.getAttribute("description") ?? undefined,
