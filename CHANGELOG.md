@@ -2,6 +2,16 @@
 
 Every release of `@withone/connect`. Until 1.0, a minor version may remove APIs an earlier minor deprecated; patch versions only fix bugs or docs.
 
+## 0.17.0 · 2026-10-07
+
+### New
+- **One connector first.** `connector: "gmail"` on `ConnectButton`, `useOneConnect` and `createConnectFlow` (and `#one_connector=gmail` on a plain link) makes One's page open that connector's connect screen as soon as the user is signed in and has chosen a space. The list with everything connected follows as always. Needs One's connect page from 2026-10-07 or later; an older page shows the list.
+- **A return path per flow.** `returnTo: "/chat/42"` on the same three sends the user back to that page instead of the server's `returnTo`. The authorize route reads `?one_return_to=` and keeps the path in the flow's cookie; only a path on your app is accepted.
+- `startAuthorization({ returnTo })` on the server client, for routes you write yourself.
+
+### Changed
+- The deprecated `platforms` prop and the `ConnectButtonPlatform*` types now say "removed in 0.18.0".
+
 ## 0.16.1 · 2026-10-06
 
 Docs only; no code changes.

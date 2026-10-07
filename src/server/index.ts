@@ -38,6 +38,8 @@ import {
   createPkceVerifier,
   createState,
   pkceChallenge,
+  appPath,
+  parseTxCookieValue,
   txCookie,
   txCookieName,
 } from "./oauth";
@@ -246,8 +248,12 @@ export function createOneConnect(
   const returnTo = config.returnTo ?? "/";
   const scopes = config.scopes ?? DEFAULT_SCOPES;
 
-  const returnUrl = (status: "success" | "error", code?: ConnectFailureCode): string => {
-    const url = new URL(returnTo, config.redirectUri);
+  const returnUrl = (
+    status: "success" | "error",
+    code?: ConnectFailureCode,
+    flowReturnTo?: string,
+  ): string => {
+    const url = new URL(flowReturnTo ?? returnTo, config.redirectUri);
     url.searchParams.set(RETURN_STATUS_PARAM, status);
     if (code) url.searchParams.set(RETURN_ERROR_PARAM, code);
     return url.toString();
@@ -319,7 +325,7 @@ export function createOneConnect(
     if (input.loginHint) url.searchParams.set("login_hint", input.loginHint);
     return {
       redirectUrl: url.toString(),
-      cookie: txCookie(state, verifier, config.redirectUri),
+      cookie: txCookie(state, verifier, config.redirectUri, appPath(input.returnTo)),
     };
   };
 
@@ -331,7 +337,10 @@ export function createOneConnect(
     const state = params.get("state");
     const oauthError = params.get("error");
     const cookieName = state ? txCookieName(state) : undefined;
-    const verifier = cookieName ? input.getCookie(cookieName) : undefined;
+    const stored = cookieName ? input.getCookie(cookieName) : undefined;
+    const { verifier, returnTo: flowReturnTo } = stored
+      ? parseTxCookieValue(stored)
+      : { verifier: undefined, returnTo: undefined };
 
     const fail = (
       failure: ConnectFailureCode,
@@ -340,7 +349,7 @@ export function createOneConnect(
       outcome: failure === "declined" ? "declined" : "failed",
       code: failure,
       message,
-      redirectUrl: returnUrl("error", failure),
+      redirectUrl: returnUrl("error", failure, flowReturnTo),
       clearCookieName: cookieName,
     });
 
@@ -378,7 +387,7 @@ export function createOneConnect(
 
     return {
       outcome: "connected",
-      redirectUrl: returnUrl("success"),
+      redirectUrl: returnUrl("success", undefined, flowReturnTo),
       clearCookieName: cookieName,
     };
   };

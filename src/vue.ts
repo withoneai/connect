@@ -62,6 +62,8 @@ export const ConnectButton = defineComponent({
       type: String as PropType<OneConnectTheme>,
       default: undefined,
     },
+    connector: { type: String, default: undefined },
+    returnTo: { type: String, default: undefined },
     label: { type: String, default: undefined },
     connectedLabel: { type: String, default: undefined },
     description: { type: String, default: undefined },

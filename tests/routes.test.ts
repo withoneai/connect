@@ -20,7 +20,7 @@ const stubClient = (
   result: CompleteAuthorizationResult = failed,
 ): Pick<OneConnectClient, "startAuthorization" | "completeAuthorization"> => ({
   startAuthorization: (input?: StartAuthorizationInput) => ({
-    redirectUrl: `https://one.test/oauth/authorize?login_hint=${encodeURIComponent(input?.loginHint ?? "")}`,
+    redirectUrl: `https://one.test/oauth/authorize?login_hint=${encodeURIComponent(input?.loginHint ?? "")}&return_to=${encodeURIComponent(input?.returnTo ?? "")}`,
     cookie: { name: "one_tx_s", value: "v", options: { httpOnly: true, secure: false, sameSite: "lax" as const, maxAge: 60, path: "/api/one" } },
   }),
   completeAuthorization: async () => result,
@@ -96,5 +96,16 @@ describe("createOneConnectRoutes onComplete", () => {
     const { GET } = createOneConnectRoutes(stubClient(), { identifyUser: () => "u1", onComplete });
     await GET(new Request("https://app.test/api/one/authorize"));
     expect(onComplete).not.toHaveBeenCalled();
+  });
+});
+
+describe("the flow's own return path", () => {
+  it("goes from the authorize route's query to startAuthorization", async () => {
+    const { GET } = createOneConnectRoutes(stubClient(), { identifyUser: () => "u1" });
+    const response = await GET(
+      new Request("https://app.test/api/one/authorize?one_return_to=%2Fchat%2F42"),
+    );
+    expect(response.status).toBe(302);
+    expect(new URL(response.headers.get("Location")!).searchParams.get("return_to")).toBe("/chat/42");
   });
 });

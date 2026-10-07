@@ -13,6 +13,16 @@ export const LEGACY_MESSAGE_PARAM = "one_connect_message";
  *  chain, so the app's backend forwards nothing. */
 export const THEME_PARAM = "one_theme";
 
+/** Fragment key naming the connector One's page opens first. Sign-in
+ *  and the space step run as always; then that connector's connect
+ *  screen opens instead of the list, and the list follows with
+ *  everything the user has connected. */
+export const CONNECTOR_PARAM = "one_connector";
+
+/** Query param on the app's own authorize route naming where this one
+ *  flow returns to. The route reads it; it never reaches One. */
+export const RETURN_TO_PARAM = "one_return_to";
+
 /** One's connector logos, by slug. */
 export const CONNECTOR_ASSETS_URL = "https://assets.withone.ai/connectors";
 

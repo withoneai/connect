@@ -31,6 +31,14 @@ export interface OneConnectFlowOptions {
   /** Theme for One's hosted page. Carried on the URL fragment, which
    *  survives the redirect chain, so the backend forwards nothing. */
   connectTheme?: OneConnectTheme;
+  /** A connector slug ("gmail"). One's page opens that connector's
+   *  connect screen first, then shows the full list as usual. Carried
+   *  on the URL fragment like the theme. */
+  connector?: string;
+  /** Where the user lands afterwards, for this flow only: a path on
+   *  your app such as "/chat/42". Your authorize route reads it and
+   *  the callback uses it instead of the server's `returnTo`. */
+  returnTo?: string;
   /** The grant completed and the backend stored the tokens. Fires once
    *  per page load, on the first flow still mounted when the tab
    *  returns. Treat it as a hint to refetch: your server is the truth. */
@@ -75,9 +83,9 @@ export interface ConnectButtonLogo {
   imageUrl: string;
 }
 
-/** @deprecated Renamed to `ConnectButtonLogoInput`; removed in 0.17.0. */
+/** @deprecated Renamed to `ConnectButtonLogoInput`; removed in 0.18.0. */
 export type ConnectButtonPlatformInput = ConnectButtonLogoInput;
-/** @deprecated Renamed to `ConnectButtonLogo`; removed in 0.17.0. */
+/** @deprecated Renamed to `ConnectButtonLogo`; removed in 0.18.0. */
 export type ConnectButtonPlatform = ConnectButtonLogo;
 
 export type ConnectButtonVariant = "default" | "accent" | "block";
@@ -94,7 +102,7 @@ export interface ConnectButtonProps {
    *  into a "+N" chip. Decoration only; the permission set decides what
    *  One asks for. */
   logos?: ConnectButtonLogoInput[];
-  /** @deprecated Renamed to `logos`; removed in 0.17.0. */
+  /** @deprecated Renamed to `logos`; removed in 0.18.0. */
   platforms?: ConnectButtonLogoInput[];
   /** Whether this user has a live grant, from your server. When set, it
    *  decides the Connected state. When omitted, the button shows
@@ -113,6 +121,10 @@ export interface ConnectButtonProps {
   theme?: ConnectButtonTheme;
   /** Theme of One's hosted page. */
   connectTheme?: OneConnectTheme;
+  /** A connector slug ("gmail") to open first on One's page. */
+  connector?: string;
+  /** Where this flow returns to: a path on your app. */
+  returnTo?: string;
   /** "Connect your apps" unless set. */
   label?: string;
   /** "Connected" unless set. */

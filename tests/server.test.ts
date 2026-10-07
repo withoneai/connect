@@ -9,7 +9,7 @@ import {
 } from "@withone/connect/server";
 import { createHash } from "node:crypto";
 
-import { pkceChallenge, txCookie } from "../src/server/oauth";
+import { parseTxCookieValue, pkceChallenge, txCookie, txCookieValue } from "../src/server/oauth";
 
 function memoryStore(): OneConnectTokenStore & { tokens: Map<string, OneConnectTokens> } {
   const tokens = new Map<string, OneConnectTokens>();
@@ -541,5 +541,62 @@ describe("refresh", () => {
     const [a, b] = await Promise.all([oneConnect.getAccessToken("u1"), oneConnect.getAccessToken("u1")]);
     expect([a, b]).toEqual(["a2", "a2"]);
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("a return path for one flow", () => {
+  let store: ReturnType<typeof memoryStore>;
+  const fetchMock = vi.fn<typeof fetch>();
+
+  beforeEach(() => {
+    store = memoryStore();
+    fetchMock.mockReset();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("rides the flow's cookie, never the authorize URL, and decides where the callback lands", async () => {
+    fetchMock.mockResolvedValueOnce(tokenResponse("at", "rt"));
+    const oneConnect = createOneConnect({ ...config, returnTo: "/home", tokenStore: store });
+    const { redirectUrl, cookie } = oneConnect.startAuthorization({ returnTo: "/chat/42" });
+    expect(redirectUrl).not.toContain("chat");
+    const state = new URL(redirectUrl).searchParams.get("state");
+    const result = await oneConnect.completeAuthorization({
+      userId: "u1",
+      url: `${config.redirectUri}?code=c&state=${state}`,
+      getCookie: (name) => (name === cookie.name ? cookie.value : undefined),
+    });
+    expect(result.outcome).toBe("connected");
+    expect(result.redirectUrl).toBe("https://app.example.com/chat/42?one_connect=success");
+  });
+
+  it("keeps a declined flow on its own page too", async () => {
+    const oneConnect = createOneConnect({ ...config, returnTo: "/home", tokenStore: store });
+    const { redirectUrl, cookie } = oneConnect.startAuthorization({ returnTo: "/chat/42" });
+    const state = new URL(redirectUrl).searchParams.get("state");
+    const result = await oneConnect.completeAuthorization({
+      userId: "u1",
+      url: `${config.redirectUri}?error=access_denied&state=${state}`,
+      getCookie: () => cookie.value,
+    });
+    expect(result.redirectUrl).toBe(
+      "https://app.example.com/chat/42?one_connect=error&one_connect_error=declined",
+    );
+  });
+
+  it("drops anything that is not a path on the app", () => {
+    const oneConnect = createOneConnect({ ...config, returnTo: "/home", tokenStore: store });
+    for (const returnTo of ["https://evil.example/x", "//evil.example", "chat", ""]) {
+      const { cookie } = oneConnect.startAuthorization({ returnTo });
+      expect(cookie.value).not.toContain(".");
+    }
+  });
+
+  it("still reads a cookie written before return paths existed", () => {
+    expect(parseTxCookieValue("plain-verifier")).toEqual({ verifier: "plain-verifier" });
+    expect(parseTxCookieValue(txCookieValue("v", "/chat/42"))).toEqual({
+      verifier: "v",
+      returnTo: "/chat/42",
+    });
   });
 });

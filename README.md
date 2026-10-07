@@ -157,6 +157,8 @@ import { ConnectButton } from "@withone/connect/react";
 | `size` | `sm`, `md` or `lg`. |
 | `fullWidth` | Fills its container. |
 | `theme` | `light`, `dark` or `auto`. `connectTheme` sets One's page. |
+| `connector` | A connector slug (`gmail`). One's page opens that connector's connect screen first, then the usual list. |
+| `returnTo` | Where this flow returns to: a path on your app, such as `/chat/42`. Overrides the server's `returnTo` for this flow only. |
 | `label` / `connectedLabel` | Button text, and the text once connected. |
 | `disabled` | Not clickable. |
 | `onSuccess` / `onError` / `onCancel` | How the flow ended. |
@@ -236,6 +238,26 @@ The user lands back on your `returnTo` page (`/` unless you set it) with the out
 | `?one_connect=error&one_connect_error=failed` | One could not complete the connection. |
 
 Show your own text for each code and never text taken from the URL, since anyone can craft a link. Remove the parameters after reading them so a refresh does not repeat the message. To theme One's page, add `#one_theme=dark` or `#one_theme=light` to the link.
+
+### One connector first
+
+A chat or a settings page often needs a single tool connected now, not the whole list. Pass `connector`, and `returnTo` when the flow must come back to the page it started on:
+
+```tsx
+const { open } = useOneConnect({
+  authorizeUrl: "/api/one/authorize",
+  connector: "gmail",
+  returnTo: "/chat/42",
+});
+
+<button onClick={open}>Connect Gmail</button>
+```
+
+One's page still signs the user in and asks for the space. Then, instead of the list, it opens Gmail's connect screen straight away. The list follows with everything the user has connected, so they confirm the whole grant as always.
+
+- `connector` is a slug from One's catalog (`gmail`, `google-calendar`, `stripe`). A slug your permission set does not offer, or one the user already connected in that space, is ignored and the page opens on the list.
+- `returnTo` must be a path on your app. Anything else is ignored and the server's `returnTo` applies.
+- Both work the same on `ConnectButton`, `createConnectFlow` and a plain link: `<a href="/api/one/authorize?one_return_to=%2Fchat%2F42#one_connector=gmail">`.
 
 ## 5 · Using the grant
 
@@ -435,6 +457,8 @@ The job renews both tokens when either is within 3 days of expiring. Without it,
 | `useOneConnect(options)` · `/react` | Your own button in React. |
 | `createConnectFlow(options)` | Your own button anywhere. |
 | `readConnectReturn()` | How this page load ended a flow, or null. |
+
+`useOneConnect` and `createConnectFlow` take `authorizeUrl`, `connectTheme`, `connector`, `returnTo`, `onSuccess`, `onError` and `onCancel`.
 
 ## Support
 
