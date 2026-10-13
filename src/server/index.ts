@@ -59,6 +59,7 @@ import {
   type ReachableConnection,
   type RefreshIfExpiringOptions,
   type RunActionInput,
+  type OneRefusal,
   type RunActionResult,
   type SearchActionsOptions,
   type StartAuthorizationInput,
@@ -68,6 +69,24 @@ import {
 export * from "./types";
 export { encodeUserReference, parseUserReference } from "./key";
 export { refreshTokenExpiresAt, tenancyHeaders, tokenScopes } from "./oauth";
+
+/**
+ * Why One itself refused a call, from its reply. One's own errors carry a
+ * correlationId; a provider's error does not, so it reads `null`. Only a
+ * 403 is the grant: One also answers a plan limit (402), a rate limit
+ * (429) and its own failures (5xx) with a correlationId, and none of those
+ * mean the call is outside what the user granted.
+ */
+function oneRefusal(response: Response, data: unknown): OneRefusal | null {
+  if (response.ok) return null;
+  const fromOne =
+    typeof data === "object" && data !== null && "correlationId" in (data as Record<string, unknown>);
+  if (!fromOne) return null;
+  if (response.status === 403) return "grant";
+  if (response.status === 402) return "plan_limit";
+  if (response.status === 429) return "rate_limit";
+  return "one_error";
+}
 
 const CATALOG_PAGE_SIZE = 100;
 const CATALOG_MAX_PAGES = 20;
@@ -624,7 +643,7 @@ export function createOneConnect(
         // tells them apart: if that still answers, the consent stands
         // and it was this call One refused.
         if (await consentStands(userId, refused))
-          return { status: response.status, ok: false, blockedByGrant: true, data: text };
+          return { status: response.status, ok: false, blockedByGrant: true, refusal: "grant", data: text };
         throw refused;
       }
       // One refusing the credential is not an answer to the action.
@@ -636,14 +655,8 @@ export function createOneConnect(
     } catch {
       /* the provider answered with something other than JSON */
     }
-    // One's own refusals carry a correlationId; a provider's error does
-    // not. A One-shaped 403 is the grant working, not the provider.
-    const blockedByGrant =
-      !response.ok &&
-      typeof data === "object" &&
-      data !== null &&
-      "correlationId" in (data as Record<string, unknown>);
-    return { status: response.status, ok: response.ok, blockedByGrant, data };
+    const refusal = oneRefusal(response, data);
+    return { status: response.status, ok: response.ok, blockedByGrant: refusal === "grant", refusal, data };
   };
 
   const shared = {

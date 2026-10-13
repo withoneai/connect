@@ -214,7 +214,7 @@ const reply = await oneConnect.runAction(userId, {
   encoding: "json",                           // or "form" / "multipart", as the guide says
   headers: {},                                // only when the guide names one
 });
-// { status, ok, blockedByGrant, data }
+// { status, ok, blockedByGrant, refusal, data }
 ```
 
 Each connection's `access` is `{ policy: "full" }`, `{ policy: "methods",
@@ -230,8 +230,18 @@ user's id to every call it makes.
 
 ## 8 - Errors
 
-A `403` reply with `blockedByGrant: true` means the call is outside what
-the user granted. Do not retry it.
+`refusal` says why One itself turned a call down:
+
+- `"grant"` (`403`, `blockedByGrant: true`): outside what the user granted.
+  Do not retry it.
+- `"plan_limit"` (`402`): a plan limit, not the grant. Wait and retry later.
+  Do not ask the user to reconnect.
+- `"rate_limit"` (`429`): too many calls. Wait and retry.
+- `"one_error"` (other, e.g. `5xx`): retry with a backoff.
+- `null`: not One's refusal; the provider's own answer, or a success.
+
+Only a `403` means "outside the grant". Never treat a `402`, `429` or `5xx`
+as a missing permission.
 
 Errors are `OneConnectError` with a `code`. Handle them where the app calls One:
 

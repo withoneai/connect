@@ -250,7 +250,7 @@ describe("key mode", () => {
       body: { raw: "…" },
       query: { alt: "json" },
     });
-    expect(reply).toEqual({ status: 200, ok: true, blockedByGrant: false, data: { id: "m1" } });
+    expect(reply).toEqual({ status: 200, ok: true, blockedByGrant: false, refusal: null, data: { id: "m1" } });
 
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe("https://api.example.test/v1/passthrough/users/me/messages/send?alt=json");
@@ -311,7 +311,7 @@ describe("key mode", () => {
       .mockResolvedValueOnce(bare(403))
       .mockResolvedValueOnce(new Response(JSON.stringify({ rows: [] })));
     const reply = await client().runAction("u1", { connectionKey: "k1", actionId: "a1", method: "GET", path: "/x" });
-    expect(reply).toEqual({ status: 403, ok: false, blockedByGrant: true, data: "403 Forbidden" });
+    expect(reply).toEqual({ status: 403, ok: false, blockedByGrant: true, refusal: "grant", data: "403 Forbidden" });
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(users.users.get("u1")).toBe(CONNECT_USER_ID);
   });
@@ -338,7 +338,33 @@ describe("key mode", () => {
       }),
     );
     const reply = await client().runAction("u1", { connectionKey: "k1", actionId: "a1", method: "DELETE", path: "/x" });
-    expect(reply).toMatchObject({ status: 403, ok: false, blockedByGrant: true });
+    expect(reply).toMatchObject({ status: 403, ok: false, blockedByGrant: true, refusal: "grant" });
+  });
+
+  it("does not call One's other refusals a grant refusal: plan limit, rate limit, its own errors", async () => {
+    users.users.set("u1", CONNECT_USER_ID);
+    // Every error One itself returns carries a correlationId; only the 403
+    // is about the grant. A plan limit or a rate limit is worth retrying.
+    const cases: [number, string, string][] = [
+      [402, "Please try again later or upgrade your plan", "plan_limit"],
+      [429, "Too many requests", "rate_limit"],
+      [500, "Internal server error", "one_error"],
+      [503, "Service unavailable", "one_error"],
+    ];
+    for (const [status, message, refusal] of cases) {
+      fetchMock.mockResolvedValueOnce(
+        new Response(JSON.stringify({ correlationId: "c1", key: "passthrough_error", message, status }), { status }),
+      );
+      const reply = await client().runAction("u1", { connectionKey: "k1", actionId: "a1", method: "GET", path: "/x" });
+      expect(reply).toMatchObject({ status, ok: false, blockedByGrant: false, refusal });
+    }
+  });
+
+  it("leaves a provider's own error unclassified", async () => {
+    users.users.set("u1", CONNECT_USER_ID);
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ error: { code: 404, message: "Not Found" } }), { status: 404 }));
+    const reply = await client().runAction("u1", { connectionKey: "k1", actionId: "a1", method: "GET", path: "/x" });
+    expect(reply).toMatchObject({ status: 404, ok: false, blockedByGrant: false, refusal: null });
   });
 
   it("returns a provider's own 403 as the provider's answer", async () => {
@@ -347,7 +373,7 @@ describe("key mode", () => {
     for (const body of ["<html>403 Forbidden</html>", "Forbidden", JSON.stringify({ error: "insufficient_scope" })]) {
       fetchMock.mockResolvedValueOnce(new Response(body, { status: 403 }));
       const reply = await client().runAction("u1", { connectionKey: "k1", actionId: "a1", method: "GET", path: "/x" });
-      expect(reply).toMatchObject({ status: 403, ok: false, blockedByGrant: false });
+      expect(reply).toMatchObject({ status: 403, ok: false, blockedByGrant: false, refusal: null });
     }
   });
 

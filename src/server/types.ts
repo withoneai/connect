@@ -279,13 +279,31 @@ export interface RunActionInput {
   encoding?: ActionBodyEncoding;
 }
 
+/**
+ * Why One itself turned a call down, when it did. A provider's own error
+ * (Gmail's 404, Stripe's 400) is not One's refusal and reads `null`.
+ *
+ * - `grant`: the call is outside what the user granted (403). Do not retry.
+ * - `plan_limit`: a plan limit was hit (402, "Please try again later or
+ *   upgrade your plan"). Not about the grant: wait and retry later.
+ * - `rate_limit`: too many calls (429). Wait and retry later.
+ * - `one_error`: any other error from One (for example a 5xx). Retry with
+ *   a backoff.
+ */
+export type OneRefusal = "grant" | "plan_limit" | "rate_limit" | "one_error";
+
 export interface RunActionResult {
   status: number;
   ok: boolean;
-  /** True when One refused the call because it is outside the grant.
-   *  The provider was never called. Do not retry. Key mode sets it; in
-   *  token mode it stays false today, so treat any 403 there as refused. */
+  /** True only when One refused the call because it is outside the grant
+   *  (a 403). The provider was never called. Do not retry. Key mode sets
+   *  it; in token mode it stays false today, so treat any 403 there as
+   *  refused. One's other refusals (plan limit, rate limit, its own
+   *  errors) are not about the grant: see `refusal`. */
   blockedByGrant: boolean;
+  /** Why One turned the call down, or `null` when it didn't (the call
+   *  succeeded, or the provider answered with its own error). */
+  refusal: OneRefusal | null;
   data: unknown;
 }
 
