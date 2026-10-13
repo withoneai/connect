@@ -146,7 +146,7 @@ describe("search, knowledge, run", () => {
       pathParams: { calendarId: "primary", eventId: "e1" },
       query: { fields: ["id", "summary"], alt: "json" },
     });
-    expect(reply).toEqual({ status: 200, ok: true, blockedByGrant: false, data: { id: "e1" } });
+    expect(reply).toEqual({ status: 200, ok: true, blockedByGrant: false, refusal: null, data: { id: "e1" } });
     const { url, init, headers } = call(1);
     expect(url).toBe("https://api.example.test/v1/passthrough/calendars/primary/events/e1?fields=id&fields=summary&alt=json");
     expect(init.method).toBe("GET");

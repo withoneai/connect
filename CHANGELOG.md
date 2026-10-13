@@ -2,6 +2,12 @@
 
 Every release of `@withone/connect`. Until 1.0, a minor version may remove APIs an earlier minor deprecated; patch versions only fix bugs or docs.
 
+## 0.17.1 · 2026-10-13
+
+### Fixed
+- **`blockedByGrant` is true only for a grant refusal.** It was true for every error One itself returned, because each one carries a `correlationId`. A plan limit (`402`, "Please try again later or upgrade your plan"), a rate limit (`429`) or a One error (`5xx`) came back as `blockedByGrant: true`, so apps told the user to reconnect and stopped, when they should have waited and retried. Now only a `403` sets it.
+- `runAction` also returns `refusal`: `"grant"`, `"plan_limit"`, `"rate_limit"`, `"one_error"`, or `null` when One did not refuse the call (a success, or the provider's own error). README and skill say what to do with each.
+
 ## 0.17.0 · 2026-10-07
 
 ### New

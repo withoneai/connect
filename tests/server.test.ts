@@ -198,6 +198,7 @@ describe("createOneConnect", () => {
       body: { to: "a@b.c" },
     });
     expect(result.blockedByGrant).toBe(true);
+    expect(result.refusal).toBe("grant");
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe("https://api.example.test/v1/passthrough/messages");
     const headers = init?.headers as Headers;

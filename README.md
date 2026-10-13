@@ -281,7 +281,7 @@ const reply = await oneConnect.runAction(userId, {
   actionId: action._id,
   body: { limit: 10 },
 });
-// { status, ok, blockedByGrant, data }
+// { status, ok, blockedByGrant, refusal, data }
 ```
 
 Each connection carries its `access`: `{ policy: "full" }`, `{ policy: "methods", methods }` or `{ policy: "actions", actions }`. Plan from it before you call.
@@ -306,7 +306,15 @@ You never set an auth header: the client adds the connect key and the user's id 
 
 ## 6 · Errors
 
-A `403` with `blockedByGrant: true` means the call is outside what the user granted. The provider was never called; don't retry it.
+When One itself turns a call down, `runAction` says why in `refusal`:
+
+| `refusal` | Status | What to do |
+|---|---|---|
+| `"grant"` (`blockedByGrant: true`) | `403` | The call is outside what the user granted. The provider was never called; don't retry it. |
+| `"plan_limit"` | `402` | A plan limit, not the grant. Wait and retry later; don't ask the user to reconnect. |
+| `"rate_limit"` | `429` | Too many calls. Wait and retry. |
+| `"one_error"` | other, e.g. `5xx` | Retry with a backoff. |
+| `null` | any | Not One's refusal: the provider's own answer, or a success. |
 
 Everything else is a `OneConnectError` with a `code`:
 
@@ -393,6 +401,7 @@ The job renews both tokens when either is within 3 days of expiring. Without it,
 | Every call fails with `request_failed`: "One did not accept the connect key" | The key is not this app's, or it was revoked. Create a key on the app's page and update `ONE_CONNECT_KEY`. |
 | Every user's calls throw `reconnect_required` | The app is deactivated. Check that it is active in the dashboard. |
 | A call returns `403` with `blockedByGrant: true` | The action is outside what the user granted. Ask for it in your permission set; users see new tools the next time they connect. |
+| A call returns `402` with `refusal: "plan_limit"` | A plan limit was hit, not the grant. Wait and retry later; don't ask the user to reconnect. |
 
 ## Supported versions
 
