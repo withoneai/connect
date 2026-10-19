@@ -1,6 +1,6 @@
 ---
 name: one-connect
-description: Add One Connect to an application so its users can grant the app scoped, revocable access to their own One-connected tools (Gmail, Slack, Notion, Stripe and 900+ more). Use when wiring @withone/connect into an app - choosing key or token mode, the two backend routes, the Connect button or the app's own button, and calling One with the grant.
+description: Add One Connect to an application so its users can grant the app scoped, revocable access to their own One-connected tools (Gmail, Slack, Notion, Stripe and the rest of 1,000+ platforms). Use when wiring @withone/connect into an app - choosing key or token mode, the two backend routes, the Connect button or the app's own button, and calling One with the grant.
 ---
 
 # One Connect

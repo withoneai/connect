@@ -21,7 +21,7 @@
   <a href="https://withone.ai/products/connect"><img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.withone.ai%2Fv1%2Favailable-connectors%3Flimit%3D1&query=%24.total&label=connectors" alt="Live count of connectors on One"></a>
 </p>
 
-One Connect lets your users grant your app **scoped, revocable access to their own tools**: Gmail, Slack, Notion, Stripe and 900+ more. The connections stay in your user's One account. Your app holds only what they granted, and One checks that on every call.
+One Connect lets your users grant your app **scoped, revocable access to their own tools**: Gmail, Slack, Notion, Stripe and the rest of 1,000+ platforms, with 130,000+ actions between them. The connections stay in your user's One account. Your app holds only what they granted, and One checks that on every call.
 
 You add three things: a button, two backend routes, and the calls you make with the grant.
 
