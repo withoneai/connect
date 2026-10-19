@@ -2,6 +2,12 @@
 
 Every release of `@withone/connect`. Until 1.0, a minor version may remove APIs an earlier minor deprecated; patch versions only fix bugs or docs.
 
+## 0.17.2 · 2026-10-19
+
+Docs only; no code changes.
+
+- README and skill count 1,000+ platforms (was 900+), and the README 130,000+ actions, matching the live catalog.
+
 ## 0.17.1 · 2026-10-13
 
 ### Fixed
