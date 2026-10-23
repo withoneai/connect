@@ -94,6 +94,10 @@ describe("createOneConnect", () => {
     expect(url.searchParams.get("permission_set")).toBe("set-1");
     expect(url.searchParams.get("login_hint")).toBe("user@example.com");
     expect(url.searchParams.get("scope")).toContain("project:connections:write");
+    // 0.18.0: the app can read who connected.
+    expect(url.searchParams.get("scope")?.split(" ")).toContain(
+      "user:profile:read",
+    );
     expect(url.searchParams.get("code_challenge")).toBe(pkceChallenge(cookie.value));
     expect(cookie.name).toBe(`one_tx_${url.searchParams.get("state")}`);
   });

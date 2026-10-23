@@ -109,7 +109,8 @@ export interface OneConnectBaseConfig {
   /** Where the callback sends the browser afterwards. "/" when omitted;
    *  the outcome is appended as `?one_connect=…`. */
   returnTo?: string;
-  /** OAuth scopes. All three tenancy tiers when omitted, so the user may
+  /** OAuth scopes. When omitted: `user:profile:read` (who connected) and
+   *  the connections scopes of all three tenancy tiers, so the user may
    *  grant from any space. */
   scopes?: string[];
 }

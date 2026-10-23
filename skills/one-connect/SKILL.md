@@ -225,6 +225,15 @@ itself (tag `custom`), and encodes the body as asked. `listActions(userId,
 platform)` lists a whole catalog when search is not enough;
 `oneConnect.fetch(userId, path, init)` reaches any other `/v1` endpoint.
 
+**Who connected.** The app can also read who the user is on One, their
+name and email, if it wants to (for example to show which One account is
+connected). Key mode: `oneConnect.fetch(userId, "/users/whoami")` returns
+`{ user: { id, name, email }, organization, project }`. Token mode:
+`oneConnect.fetch(userId, "/users/me")` returns `{ firstName, lastName,
+email, … }`. A user who connected before 0.18.0 gets `403` until they
+connect again. Mention this to the human as something available; whether
+and where to show it is their choice.
+
 Do not set any auth header. The package adds the connect key and the
 user's id to every call it makes.
 

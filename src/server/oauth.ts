@@ -12,6 +12,9 @@ export const TX_COOKIE_PREFIX = "one_tx_";
 export const TX_COOKIE_MAX_AGE_SECONDS = 1800;
 
 export const DEFAULT_SCOPES = [
+  // Who connected: lets the app read the user's name and email from
+  // /v1/users/whoami (key mode) or /v1/users/me (token mode).
+  "user:profile:read",
   "user:connections:read",
   "user:connections:write",
   "org:connections:read",

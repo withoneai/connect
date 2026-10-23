@@ -302,6 +302,21 @@ await oneConnect.runAction(userId, {
 
 `listActions(userId, platform)` lists everything a platform can do, and `runAction` takes `method` and `path` from it if you'd rather pass them yourself. `oneConnect.fetch(userId, path, init)` sends any other request to One's `/v1` API with the headers handled.
 
+### Who connected
+
+You can also read who the user is on One: their name and email. Use it if you want to, for example to show which One account is connected.
+
+```ts
+// Key mode
+const res = await oneConnect.fetch(userId, "/users/whoami");
+const { user } = await res.json(); // { id, name, email }
+
+// Token mode
+const me = await (await oneConnect.fetch(userId, "/users/me")).json(); // { firstName, lastName, email, … }
+```
+
+Users who connected with a version before 0.18.0 did not grant this, so the call returns `403` until they connect again.
+
 You never set an auth header: the client adds the connect key and the user's id to every call it makes.
 
 ## 6 · Errors
@@ -429,7 +444,7 @@ The job renews both tokens when either is within 3 days of expiring. Without it,
 | `mode` | `"key"` or `"token"`, to state the mode explicitly. |
 | `permissionSet` | The Permission set ID to ask for. |
 | `returnTo` | Where the callback sends the browser afterwards. `/` by default. |
-| `scopes` | OAuth scopes. All three spaces (personal, organization, project) by default, so the user may grant from any. |
+| `scopes` | OAuth scopes. By default `user:profile:read` (who connected) and the connections scopes of all three spaces (personal, organization, project), so the user may grant from any. |
 | `oneApiUrl` | One's API origin. Production by default. |
 
 | Method | Mode | |
