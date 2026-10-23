@@ -2,6 +2,14 @@
 
 Every release of `@withone/connect`. Until 1.0, a minor version may remove APIs an earlier minor deprecated; patch versions only fix bugs or docs.
 
+## 0.18.0 · 2026-10-23
+
+### New
+- **Who connected.** The default scopes now include `user:profile:read`, so the app can read the connected user's name and email: `oneConnect.fetch(userId, "/users/whoami")` in key mode (`{ user: { id, name, email }, organization, project }`), `"/users/me"` in token mode. Users who connected with an earlier version did not grant it and get `403` until they connect again. An app that passes its own `scopes` is unchanged.
+
+### Changed
+- The deprecated `platforms` prop and `ConnectButtonPlatform*` types now say "removed in 0.19.0".
+
 ## 0.17.2 · 2026-10-19
 
 Docs only; no code changes.
