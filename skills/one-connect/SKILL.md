@@ -45,10 +45,10 @@ from `@withone/connect/config` (name, `redirectUris`, `ask` with each tool's
 `access`: `read-only`, `read-write`, `full-access`, or `custom` with
 `actions`), run `one connect types` for slugs and action names, then
 `one --agent connect create`. It writes `ONE_CLIENT_ID`,
+`ONE_CLIENT_SECRET` (never printed; do not read it back),
 `ONE_PERMISSION_SET` and `ONE_REDIRECT_URI` to `.env` and opens the
-dashboard; tell the human to copy `ONE_CLIENT_SECRET` and `ONE_CONNECT_KEY`
-from that page into `.env`. Run it again after editing the file to update
-the app. Find a custom action's name or id with
+dashboard; tell the human to copy `ONE_CONNECT_KEY` from that page into
+`.env`. Run it again after editing the file to update the app. Find a custom action's name or id with
 `one actions search <platform> "<query>"`.
 
 Otherwise they create the app in the One dashboard: Developers -> Connect -> New app.

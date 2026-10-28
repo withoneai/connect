@@ -5,7 +5,7 @@ Every release of `@withone/connect`. Until 1.0, a minor version may remove APIs 
 ## 0.19.0 · 2026-10-28
 
 ### New
-- **The app as code.** `@withone/connect/config` exports `defineConnectApp` and its types, so `one.connect.ts` describes a Connect app: name, logo, redirect URIs, branding, and what it asks for per tool (`read-only`, `read-write`, `full-access`, or `custom` with named actions). The One CLI (2.10.0 or later) creates or updates the app from it with `one connect create`, and `one connect types` makes tool slugs and action names autocomplete. Types only; nothing in it calls One.
+- **The app as code.** `@withone/connect/config` exports `defineConnectApp` and its types, so `one.connect.ts` describes a Connect app: name, logo, redirect URIs, branding, and what it asks for per tool (`read-only`, `read-write`, `full-access`, or `custom` with named actions). The One CLI (2.10.0 or later) creates or updates the app from it with `one connect create`, writing the client secret straight to `.env`, and `one connect types` makes tool slugs and action names autocomplete. Types only; nothing in it calls One.
 
 ### Changed
 - The deprecated `platforms` prop and `ConnectButtonPlatform*` types now say "removed in 0.20.0".

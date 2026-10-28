@@ -15,9 +15,9 @@
  *   });
  *
  * Types and one identity helper; nothing here calls One. The CLI reads the
- * file and creates or updates the app with your API key. The client secret
- * and the connect key are never part of it: the CLI opens the dashboard,
- * which shows them once.
+ * file and creates or updates the app with your API key, writing the client
+ * secret to `.env`. Secrets are never part of the file; the connect key is
+ * made in the dashboard, which the CLI opens.
  */
 
 /**
