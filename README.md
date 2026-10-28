@@ -109,7 +109,7 @@ one connect types    # optional: tool slugs and action names autocomplete
 one connect create   # creates or updates the app, writes .env, opens the dashboard
 ```
 
-The CLI writes `ONE_CLIENT_ID`, `ONE_CLIENT_SECRET`, `ONE_PERMISSION_SET` and `ONE_REDIRECT_URI` to `.env` (the secret is never printed) and opens the app's **Credentials** page, which makes the connect key and shows it once. `access` is `read-only`, `read-write`, `full-access`, or `custom` with `actions`, named as `one connect types` wrote them or by id.
+The CLI writes `ONE_CLIENT_ID`, `ONE_PERMISSION_SET` and `ONE_REDIRECT_URI` to `.env` and opens the app's **Credentials** page, which shows the client secret and the connect key once. They never pass through the terminal. `access` is `read-only`, `read-write`, `full-access`, or `custom` with `actions`, named as `one connect types` wrote them or by id. On Node older than 22.18, name the file `one.connect.mjs` and type it with `/** @type {import("@withone/connect/config").ConnectAppConfig} */`.
 
 ## 2 · The server client
 
