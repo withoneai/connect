@@ -14,10 +14,11 @@
  *     },
  *   });
  *
- * Types and one identity helper; nothing here calls One. The CLI reads the
- * file and creates or updates the app with your API key. The client secret
- * and the connect key are never part of it: the CLI opens the dashboard,
- * which shows them once.
+ * Types and one identity helper; nothing here calls One. `one connect
+ * create` reads the file and opens a page in your signed-in browser, where
+ * you approve the app (or, on a re-run, its new version). A new app's
+ * client secret and connect key are made and shown there once; neither is
+ * ever part of this file or passes through the CLI.
  */
 
 /**

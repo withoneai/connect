@@ -86,7 +86,7 @@ ONE_PERMISSION_SET=…                                  # optional: the Permissi
 
 ### Or from code
 
-Describe the app in `one.connect.ts` and let the [One CLI](https://www.npmjs.com/package/@withone/cli) (2.10.0 or later) create it with your API key. Running it again updates the same app.
+Describe the app in `one.connect.ts` and create it with the [One CLI](https://www.npmjs.com/package/@withone/cli) (2.10.0 or later). Running it again updates the same app.
 
 ```ts
 // one.connect.ts
@@ -106,10 +106,10 @@ export default defineConnectApp({
 
 ```bash
 one connect types    # optional: tool slugs and action names autocomplete
-one connect create   # creates or updates the app, writes .env, opens the dashboard
+one connect create   # opens your browser to approve it, then writes .env
 ```
 
-The CLI writes `ONE_CLIENT_ID`, `ONE_PERMISSION_SET` and `ONE_REDIRECT_URI` to `.env` and opens the app's **Credentials** page, which shows the client secret and the connect key once. They never pass through the terminal. `access` is `read-only`, `read-write`, `full-access`, or `custom` with `actions`, named as `one connect types` wrote them or by id. On Node older than 22.18, name the file `one.connect.mjs` and type it with `/** @type {import("@withone/connect/config").ConnectAppConfig} */`.
+The CLI opens a page in your signed-in browser showing the app as your users will see it. You approve it there; a new app's client secret and connect key are made on that page and shown once, so they never pass through the terminal. The CLI then writes `ONE_CLIENT_ID`, `ONE_PERMISSION_SET` and `ONE_REDIRECT_URI` to `.env`. `access` is `read-only`, `read-write`, `full-access`, or `custom` with `actions`, named as `one connect types` wrote them or by id. On Node older than 22.18, name the file `one.connect.mjs` and type it with `/** @type {import("@withone/connect/config").ConnectAppConfig} */`.
 
 ## 2 · The server client
 

@@ -44,11 +44,13 @@ from code instead of asking: write `one.connect.ts` with `defineConnectApp`
 from `@withone/connect/config` (name, `redirectUris`, `ask` with each tool's
 `access`: `read-only`, `read-write`, `full-access`, or `custom` with
 `actions`), run `one connect types` for slugs and action names, then
-`one --agent connect create`. It writes `ONE_CLIENT_ID`,
-`ONE_PERMISSION_SET` and `ONE_REDIRECT_URI` to `.env` and opens the
-dashboard; tell the human to copy `ONE_CLIENT_SECRET` and `ONE_CONNECT_KEY`
-from that page into `.env`. Run it again after editing the file to update
-the app. Find a custom action's name or id with
+`one --agent connect create`. It opens a page in the human's browser and
+waits (up to 10 minutes; run it in the background or with a long timeout)
+while they approve the app there. That page makes `ONE_CLIENT_SECRET` and
+`ONE_CONNECT_KEY` and shows them once: tell the human to copy both into
+`.env`. Once approved, the CLI writes `ONE_CLIENT_ID`,
+`ONE_PERMISSION_SET` and `ONE_REDIRECT_URI` to `.env`. Run it again after
+editing the file to update the app; the human approves that too. Find a custom action's name or id with
 `one actions search <platform> "<query>"`.
 
 Otherwise they create the app in the One dashboard: Developers -> Connect -> New app.
