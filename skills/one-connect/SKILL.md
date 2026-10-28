@@ -39,7 +39,66 @@ key mode; section 10 lists what changes for token mode.
 
 ## 2 - Ask the human for these
 
-They create the app in the One dashboard: Developers -> Connect -> New app.
+If the human has the One CLI (2.10.0 or later), create the app from code
+instead of asking for its values.
+
+**Before you start.** The CLI must be logged in: `one login` (or
+`one init`) gives the CLI its own One API key, kept in `~/.one`. Never put
+that key in the app's `.env`; the app never needs it. Install the SDK in the
+project first (`npm i @withone/connect`, 0.19.0 or later): the config file
+imports it.
+
+**1. Write `one.connect.ts`** at the project root:
+
+```ts
+import { defineConnectApp } from "@withone/connect/config";
+
+export default defineConnectApp({
+  name: "Acme Assistant",                                // shown on the connect card
+  redirectUris: ["http://localhost:3000/api/one/callback"], // every callback URL, exact
+  reason: "Acme Assistant reads your mail and plans your week", // optional, at most 200 characters
+  description: "Your inbox and calendar, planned",       // optional
+  logoUrl: "https://acme.app/logo.png",                  // optional, square, public https
+  homepageUrl: "https://acme.app",                       // optional
+  branding: { panelColor: "#0A0C0B", buttonColor: "#0A0C0B", cobrandEmail: false }, // optional
+  ask: {                                                 // optional: omit to let users pick from everything they have
+    gmail: { access: "custom", actions: ["sendEmail", "listAndViewEmailThreads"] },
+    "google-calendar": { access: "full-access" },
+    notion: { access: "read-write" },
+  },
+});
+```
+
+Each tool in `ask` is keyed by its slug and takes `access`: `read-only`,
+`read-write` (no deletes), `full-access`, or `custom` with `actions`.
+
+**2. Find slugs and action names** with the CLI, which reads One's catalog
+with its own key:
+
+```bash
+one connect types                                  # writes one-connect-env.d.ts: every slug, and action names for the tools in ask
+one --agent platforms                              # every tool slug
+one --agent actions find gmail "send an email" --no-knowledge   # an action's id and title
+```
+
+Use the names `one connect types` wrote, or an action's id
+(`conn_mod_def::…`). A wrong name stops `connect create` before anything
+is made.
+
+**3. Run `one --agent connect create`.** It opens a page in the human's
+browser and waits up to 10 minutes, so run it in the background or with a
+long timeout; the link goes to stderr at once, so pass it on if no browser
+opened. The human sees the app as their users will, and approves it. For a
+new app that page makes `ONE_CLIENT_SECRET` and `ONE_CONNECT_KEY` and shows
+them once: tell the human to copy both into `.env`. Once approved, the CLI
+writes `ONE_CLIENT_ID`, `ONE_PERMISSION_SET` and `ONE_REDIRECT_URI` to
+`.env` and prints `"outcome": "created"`.
+
+**To change the app later,** edit `one.connect.ts` and run
+`one --agent connect create` again. The human approves the new version in
+the browser (`"outcome": "updated"`); the secrets stay as they are.
+
+Otherwise they create the app in the One dashboard: Developers -> Connect -> New app.
 
 | Value | Notes |
 |---|---|

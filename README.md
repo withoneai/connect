@@ -84,6 +84,41 @@ ONE_REDIRECT_URI=https://yourapp.com/api/one/callback  # exactly the registered 
 ONE_PERMISSION_SET=…                                  # optional: the Permission set ID
 ```
 
+### Or from code
+
+Describe the app in `one.connect.ts` and create it with the [One CLI](https://www.npmjs.com/package/@withone/cli) (2.10.0 or later). Running it again updates the same app.
+
+```ts
+// one.connect.ts
+import { defineConnectApp } from "@withone/connect/config";
+
+export default defineConnectApp({
+  name: "Mastra",
+  logoUrl: "https://mastra.ai/logo.png",
+  redirectUris: ["http://localhost:3000/api/one/callback"],
+  ask: {
+    gmail: { access: "custom", actions: ["sendEmail", "listAndViewEmailThreads"] },
+    "google-calendar": { access: "read-only" },
+    linear: { access: "read-write" },
+  },
+});
+```
+
+```bash
+one connect types    # optional: tool slugs and action names autocomplete
+one connect create   # opens your browser to approve it, then writes .env
+```
+
+The CLI opens a page in your signed-in browser showing the app as your users will see it. You approve it there; a new app's client secret and connect key are made on that page and shown once, so they never pass through the terminal. The CLI then writes `ONE_CLIENT_ID`, `ONE_PERMISSION_SET` and `ONE_REDIRECT_URI` to `.env`. `access` is `read-only`, `read-write`, `full-access`, or `custom` with `actions`, named as `one connect types` wrote them or by id. On Node older than 22.18, name the file `one.connect.mjs` and type it with `/** @type {import("@withone/connect/config").ConnectAppConfig} */`.
+
+| Prop | |
+|---|---|
+| `name`, `redirectUris` | Required. Every callback URL, character for character. |
+| `reason` | One sentence on the card telling users why, at most 200 characters. |
+| `description`, `logoUrl`, `homepageUrl` | Optional. |
+| `branding` | `panelColor`, `buttonColor` (`#RRGGBB`), `cobrandEmail`. |
+| `ask` | Per tool slug: `access` is `read-only`, `read-write`, `full-access`, or `custom` with `actions`. Omit it to let users choose from everything they have connected. |
+
 ## 2 · The server client
 
 Your server holds one **connect key** for the app and saves one id per user who connects. Nothing expires and nothing is refreshed: One checks the user's consent on every call.
@@ -483,6 +518,14 @@ The job renews both tokens when either is within 3 days of expiring. Without it,
 | `readConnectReturn()` | How this page load ended a flow, or null. |
 
 `useOneConnect` and `createConnectFlow` take `authorizeUrl`, `connectTheme`, `connector`, `returnTo`, `onSuccess`, `onError` and `onCancel`.
+
+### Config · `@withone/connect/config`
+
+| Export | |
+|---|---|
+| `defineConnectApp(config)` | Returns `config` unchanged; types `one.connect.ts`. |
+| `ConnectAppConfig`, `ConnectToolAsk`, `ConnectAccess`, `ConnectAppBranding` | The config's types. |
+| `ConnectRegistry` | Filled in by `one connect types` so slugs and action names autocomplete. |
 
 ## Support
 
