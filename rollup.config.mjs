@@ -86,4 +86,6 @@ export default [
   serverBuild('server/index'),
   serverBuild('next'),
   serverBuild('node'),
+  // Types and an identity helper for one.connect.ts; read by the CLI.
+  serverBuild('config'),
 ];

@@ -39,7 +39,19 @@ key mode; section 10 lists what changes for token mode.
 
 ## 2 - Ask the human for these
 
-They create the app in the One dashboard: Developers -> Connect -> New app.
+If the project has the One CLI (2.10.0 or later) and no app yet, create it
+from code instead of asking: write `one.connect.ts` with `defineConnectApp`
+from `@withone/connect/config` (name, `redirectUris`, `ask` with each tool's
+`access`: `read-only`, `read-write`, `full-access`, or `custom` with
+`actions`), run `one connect types` for slugs and action names, then
+`one --agent connect create`. It writes `ONE_CLIENT_ID`,
+`ONE_PERMISSION_SET` and `ONE_REDIRECT_URI` to `.env` and opens the
+dashboard; tell the human to copy `ONE_CLIENT_SECRET` and `ONE_CONNECT_KEY`
+from that page into `.env`. Run it again after editing the file to update
+the app. Find a custom action's name or id with
+`one actions search <platform> "<query>"`.
+
+Otherwise they create the app in the One dashboard: Developers -> Connect -> New app.
 
 | Value | Notes |
 |---|---|

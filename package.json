@@ -1,6 +1,6 @@
 {
   "name": "@withone/connect",
-  "version": "0.18.0",
+  "version": "0.19.0",
   "description": "One Connect for your app: the button your users press, the two backend routes as one import, and a server client that calls One with the grant. Users keep their connections in One; your app holds only what they granted.",
   "files": [
     "dist",
@@ -104,6 +104,11 @@
       "types": "./dist/node.d.ts",
       "import": "./dist/node.esm.js",
       "require": "./dist/node.cjs.js"
+    },
+    "./config": {
+      "types": "./dist/config.d.ts",
+      "import": "./dist/config.esm.js",
+      "require": "./dist/config.cjs.js"
     },
     "./package.json": "./package.json"
   },

@@ -8,6 +8,7 @@ export default defineConfig({
       "@withone/connect/react": new URL("./src/react.ts", import.meta.url).pathname,
       "@withone/connect/vue": new URL("./src/vue.ts", import.meta.url).pathname,
       "@withone/connect/svelte": new URL("./src/svelte.ts", import.meta.url).pathname,
+      "@withone/connect/config": new URL("./src/config.ts", import.meta.url).pathname,
       "@withone/connect": new URL("./src/index.ts", import.meta.url).pathname,
     },
   },

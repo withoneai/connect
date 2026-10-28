@@ -47,6 +47,9 @@
       ],
       "@withone/connect/node": [
         "src/node.ts"
+      ],
+      "@withone/connect/config": [
+        "src/config.ts"
       ]
     },
     "rootDir": "src"
