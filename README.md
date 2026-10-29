@@ -57,7 +57,7 @@ The button, the routes and the calls are the same either way. Only what your ser
 | Expires | Nothing | The access token per your app's Token lifetime; the refresh token after 30 days |
 | You also run | Nothing | A daily refresh job |
 | When a user revokes | The next call throws `reconnect_required` | The next refresh throws `refresh_failed` |
-| A call outside the grant | `403` with `blockedByGrant: true` | `403` (`blockedByGrant` stays `false`) |
+| A call outside the grant | `403` with `blockedByGrant: true` | The same |
 | Pick it when | You are starting out | You need the bearer token itself, or your app already stores tokens |
 
 The mode is the credential you pass to `createOneConnect`: `connectKey` and `userStore` for key mode, `tokenStore` for token mode. Sections 1 to 6 use key mode; [section 7](#7--token-mode) shows what changes for token mode.

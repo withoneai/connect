@@ -30,7 +30,7 @@ the server keeps differs.
 | Server keeps | one connect key for the app, one id per user | an access and a refresh token per user |
 | Expires | nothing | yes; the app runs a daily refresh job |
 | User revoked | next call throws `reconnect_required` | next refresh throws `refresh_failed` |
-| Call outside the grant | `403`, `blockedByGrant: true` | `403`, `blockedByGrant` stays `false` |
+| Call outside the grant | `403`, `blockedByGrant: true` | the same |
 
 Use **key mode** unless the human asks for token mode, the app needs the
 bearer token itself, or the app already passes a `tokenStore`. Do not switch
@@ -396,8 +396,8 @@ const accessToken = await oneConnect.getAccessToken(userId); // when the app nee
 - When the user revokes access, the next refresh throws `refresh_failed`
   (not `reconnect_required`) and the tokens are cleared. Ask them to connect
   again.
-- `blockedByGrant` stays `false` in token mode; treat any `403` as outside
-  the grant.
+- A call outside the grant comes back as in key mode: `403`,
+  `blockedByGrant: true`, `refusal: "grant"`.
 
 Tokens expire, and two things keep them fresh. Only the first is automatic:
 
