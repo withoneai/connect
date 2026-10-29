@@ -2,6 +2,12 @@
 
 Every release of `@withone/connect`. Until 1.0, a minor version may remove APIs an earlier minor deprecated; patch versions only fix bugs or docs.
 
+## 0.19.1 · 2026-10-29
+
+Docs only; no code changes.
+
+- README and skill: a call outside the grant comes back the same in token mode as in key mode, `403` with `blockedByGrant: true` and `refusal: "grant"`. They said `blockedByGrant` stayed `false` in token mode, which stopped being true in 0.17.1.
+
 ## 0.19.0 · 2026-10-28
 
 ### New
