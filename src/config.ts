@@ -14,6 +14,9 @@
  *     },
  *   });
  *
+ * Or, for an agent or CLI that works across whatever its users have,
+ * `ask: "everything"`.
+ *
  * Types and one identity helper; nothing here calls One. `one connect
  * create` reads the file and opens a page in your signed-in browser, where
  * you approve the app (or, on a re-run, its new version). A new app's
@@ -74,6 +77,12 @@ export type ConnectToolAsk<T extends string = string> =
       actions: readonly [ConnectActionRef<T>, ...ConnectActionRef<T>[]];
     };
 
+/** The tools an app asks for, keyed by slug. */
+export type ConnectToolsAsk = { [T in ConnectToolSlug]?: ConnectToolAsk<T> };
+
+/** What an app asks for: named tools, or everything its users have. */
+export type ConnectAppAsk = ConnectToolsAsk | "everything";
+
 /** A colour as `#RRGGBB`. */
 export type ConnectHexColor = `#${string}`;
 
@@ -103,9 +112,15 @@ export interface ConnectAppConfig {
    *  200 characters. */
   reason?: string;
   branding?: ConnectAppBranding;
-  /** The tools the app asks for, keyed by slug. Omit it to let users
-   *  choose from everything they have connected. */
-  ask?: { [T in ConnectToolSlug]?: ConnectToolAsk<T> };
+  /**
+   * What the app asks for. Required, so the file always says it:
+   * - a map of tools, keyed by slug: users see exactly those and can only
+   *   narrow them;
+   * - `"everything"`: users see every connection they have, at full
+   *   access, and can connect any other app from Popular apps or Browse
+   *   all. They can narrow any of them before they authorize.
+   */
+  ask: ConnectAppAsk;
 }
 
 /**

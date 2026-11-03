@@ -2,6 +2,7 @@ import { describe, expect, expectTypeOf, it } from "vitest";
 
 import {
   defineConnectApp,
+  type ConnectAppAsk,
   type ConnectAppConfig,
   type ConnectToolAsk,
 } from "@withone/connect/config";
@@ -55,6 +56,25 @@ describe("defineConnectApp", () => {
     }>().not.toMatchTypeOf<ConnectToolAsk>();
   });
 
+  it("asks for everything with one literal", () => {
+    const app = defineConnectApp({
+      name: "Agent",
+      redirectUris: ["http://localhost:3000/api/one/callback"],
+      ask: "everything",
+    });
+
+    expectTypeOf(app.ask).toEqualTypeOf<"everything">();
+    expectTypeOf<"everything">().toMatchTypeOf<ConnectAppAsk>();
+    expectTypeOf<"all">().not.toMatchTypeOf<ConnectAppAsk>();
+  });
+
+  it("needs ask, so the file always says what the app asks for", () => {
+    expectTypeOf<{
+      name: string;
+      redirectUris: ["https://a.test/cb"];
+    }>().not.toMatchTypeOf<ConnectAppConfig>();
+  });
+
   it("needs a name and at least one redirect URI", () => {
     expectTypeOf<{
       name: string;
@@ -62,6 +82,7 @@ describe("defineConnectApp", () => {
     }>().not.toMatchTypeOf<ConnectAppConfig>();
     expectTypeOf<{
       redirectUris: ["https://a.test/cb"];
+      ask: "everything";
     }>().not.toMatchTypeOf<ConnectAppConfig>();
   });
 });

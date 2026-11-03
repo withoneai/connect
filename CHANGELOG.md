@@ -2,6 +2,12 @@
 
 Every release of `@withone/connect`. Until 1.0, a minor version may remove APIs an earlier minor deprecated; patch versions only fix bugs or docs.
 
+## 0.20.0 · 2026-11-03
+
+### Changed
+- **`ask` says what the app asks for, always.** In `defineConnectApp`, `ask` is now required and is either a map of tools or `"everything"`. `"everything"` is the dashboard's "Everything the user has connected": users see every connection they have at full access, can connect any other app from Popular apps or Browse all, and can narrow any of them. A config without `ask` no longer type-checks: add `ask: "everything"` to keep what leaving it out meant. With the One CLI (2.11.0 or later), `one connect create` can now switch an existing app from a list of tools to everything, and removes `ONE_PERMISSION_SET` from `.env` when it does.
+- The deprecated `platforms` prop and `ConnectButtonPlatform*` types now say "removed in 0.21.0".
+
 ## 0.19.1 · 2026-10-29
 
 Docs only; no code changes.
