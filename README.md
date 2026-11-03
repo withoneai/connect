@@ -104,12 +104,22 @@ export default defineConnectApp({
 });
 ```
 
+An agent or CLI that works across whatever its users have asks for everything instead:
+
+```ts
+export default defineConnectApp({
+  name: "Mastra",
+  redirectUris: ["http://localhost:3000/api/one/callback"],
+  ask: "everything",
+});
+```
+
 ```bash
 one connect types    # optional: tool slugs and action names autocomplete
 one connect create   # opens your browser to approve it, then writes .env
 ```
 
-The CLI opens a page in your signed-in browser showing the app as your users will see it. You approve it there; a new app's client secret and connect key are made on that page and shown once, so they never pass through the terminal. The CLI then writes `ONE_CLIENT_ID`, `ONE_PERMISSION_SET` and `ONE_REDIRECT_URI` to `.env`. `access` is `read-only`, `read-write`, `full-access`, or `custom` with `actions`, named as `one connect types` wrote them or by id. On Node older than 22.18, name the file `one.connect.mjs` and type it with `/** @type {import("@withone/connect/config").ConnectAppConfig} */`.
+The CLI opens a page in your signed-in browser showing the app as your users will see it. You approve it there; a new app's client secret and connect key are made on that page and shown once, so they never pass through the terminal. The CLI then writes `ONE_CLIENT_ID`, `ONE_REDIRECT_URI` and, for a list of tools, `ONE_PERMISSION_SET` to `.env` (an app that asks for everything has none, so the CLI removes it). `access` is `read-only`, `read-write`, `full-access`, or `custom` with `actions`, named as `one connect types` wrote them or by id. On Node older than 22.18, name the file `one.connect.mjs` and type it with `/** @type {import("@withone/connect/config").ConnectAppConfig} */`.
 
 | Prop | |
 |---|---|
@@ -117,7 +127,7 @@ The CLI opens a page in your signed-in browser showing the app as your users wil
 | `reason` | One sentence on the card telling users why, at most 200 characters. |
 | `description`, `logoUrl`, `homepageUrl` | Optional. |
 | `branding` | `panelColor`, `buttonColor` (`#RRGGBB`), `cobrandEmail`. |
-| `ask` | Per tool slug: `access` is `read-only`, `read-write`, `full-access`, or `custom` with `actions`. Omit it to let users choose from everything they have connected. |
+| `ask` | Required. Per tool slug: `access` is `read-only`, `read-write`, `full-access`, or `custom` with `actions`; users see those and can only narrow them. Or `"everything"`: users see every connection they have at full access, can connect any other app from Popular apps or Browse all, and can narrow any of them. |
 
 ## 2 · The server client
 

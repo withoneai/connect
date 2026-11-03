@@ -61,7 +61,7 @@ export default defineConnectApp({
   logoUrl: "https://acme.app/logo.png",                  // optional, square, public https
   homepageUrl: "https://acme.app",                       // optional
   branding: { panelColor: "#0A0C0B", buttonColor: "#0A0C0B", cobrandEmail: false }, // optional
-  ask: {                                                 // optional: omit to let users pick from everything they have
+  ask: {                                                 // required: these tools, or "everything"
     gmail: { access: "custom", actions: ["sendEmail", "listAndViewEmailThreads"] },
     "google-calendar": { access: "full-access" },
     notion: { access: "read-write" },
@@ -71,6 +71,11 @@ export default defineConnectApp({
 
 Each tool in `ask` is keyed by its slug and takes `access`: `read-only`,
 `read-write` (no deletes), `full-access`, or `custom` with `actions`.
+
+For an agent or CLI that works across whatever its users have, write
+`ask: "everything"` instead: users see every connection they have, at full
+access, can connect any other app, and can narrow any of them. The CLI then
+writes no `ONE_PERMISSION_SET`.
 
 **2. Find slugs and action names** with the CLI, which reads One's catalog
 with its own key:
