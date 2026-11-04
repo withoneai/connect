@@ -3,7 +3,7 @@
  *
  *   <ConnectButton
  *     authorize-url="/api/one/authorize"
- *     :platforms="['stripe', 'notion']"
+ *     :logos="['stripe', 'notion']"
  *     :connected="user.hasOneGrant"
  *     @success="onConnected"
  *   />
@@ -44,11 +44,6 @@ export const ConnectButton = defineComponent({
       type: Array as PropType<ConnectButtonLogoInput[]>,
       default: undefined,
     },
-    /** @deprecated use logos */
-    platforms: {
-      type: Array as PropType<ConnectButtonLogoInput[]>,
-      default: undefined,
-    },
     connected: optionalBoolean,
     disabled: optionalBoolean,
     variant: {
@@ -62,6 +57,8 @@ export const ConnectButton = defineComponent({
       type: String as PropType<OneConnectTheme>,
       default: undefined,
     },
+    openApp: { type: String, default: undefined },
+    /** @deprecated Renamed to openApp. Still works. */
     connector: { type: String, default: undefined },
     returnTo: { type: String, default: undefined },
     label: { type: String, default: undefined },

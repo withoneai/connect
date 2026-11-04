@@ -96,26 +96,47 @@ describe("the browser entry point", () => {
   });
 });
 
-describe("opening one connector first, and coming back to one page", () => {
-  it("names the connector on the fragment, next to the theme", () => {
+describe("opening one app first, and coming back to one page", () => {
+  it("names the app on the fragment, next to the theme", () => {
     createConnectFlow({
       authorizeUrl: "/api/one/authorize",
       connectTheme: "dark",
-      connector: " Gmail ",
+      openApp: " Gmail ",
     }).open();
     expect(assign).toHaveBeenCalledWith(
-      `${location.origin}/api/one/authorize#one_theme=dark&one_connector=gmail`,
+      `${location.origin}/api/one/authorize#one_theme=dark&one_open_app=gmail`,
+    );
+  });
+
+  it("still accepts the old `connector` option, under the new key", () => {
+    createConnectFlow({
+      authorizeUrl: "/api/one/authorize",
+      connector: "gmail",
+    }).open();
+    expect(assign).toHaveBeenCalledWith(
+      `${location.origin}/api/one/authorize#one_open_app=gmail`,
+    );
+  });
+
+  it("prefers openApp when both are given", () => {
+    createConnectFlow({
+      authorizeUrl: "/api/one/authorize",
+      openApp: "slack",
+      connector: "gmail",
+    }).open();
+    expect(assign).toHaveBeenCalledWith(
+      `${location.origin}/api/one/authorize#one_open_app=slack`,
     );
   });
 
   it("asks the authorize route to bring the user back to this flow's page", () => {
     createConnectFlow({
       authorizeUrl: "/api/one/authorize",
-      connector: "gmail",
+      openApp: "gmail",
       returnTo: "/chat/42",
     }).open();
     expect(assign).toHaveBeenCalledWith(
-      `${location.origin}/api/one/authorize?one_return_to=%2Fchat%2F42#one_connector=gmail`,
+      `${location.origin}/api/one/authorize?one_return_to=%2Fchat%2F42#one_open_app=gmail`,
     );
   });
 });

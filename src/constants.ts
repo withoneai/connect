@@ -13,11 +13,12 @@ export const LEGACY_MESSAGE_PARAM = "one_connect_message";
  *  chain, so the app's backend forwards nothing. */
 export const THEME_PARAM = "one_theme";
 
-/** Fragment key naming the connector One's page opens first. Sign-in
- *  and the space step run as always; then that connector's connect
- *  screen opens instead of the list, and the list follows with
- *  everything the user has connected. */
-export const CONNECTOR_PARAM = "one_connector";
+/** Fragment key naming the app One's page opens first. Sign-in and the
+ *  space step run as always; then that app's connect screen opens
+ *  instead of the list, and the list follows with everything the user
+ *  has connected. One's page also reads the old `one_connector` key, so
+ *  links written before the rename keep working. */
+export const OPEN_APP_PARAM = "one_open_app";
 
 /** Query param on the app's own authorize route naming where this one
  *  flow returns to. The route reads it; it never reaches One. */

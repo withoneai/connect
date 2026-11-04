@@ -1,7 +1,7 @@
 import { CONNECTOR_ASSETS_URL } from "./constants";
 import type {
-  ConnectButtonPlatform,
-  ConnectButtonPlatformInput,
+  ConnectButtonLogo,
+  ConnectButtonLogoInput,
 } from "./types";
 
 /** "Google Calendar" -> "google-calendar". */
@@ -69,8 +69,8 @@ export function logoUrlForSlug(slug: string): string {
  * as an empty chip.
  */
 export function normalizePlatform(
-  input: ConnectButtonPlatformInput,
-): ConnectButtonPlatform | null {
+  input: ConnectButtonLogoInput,
+): ConnectButtonLogo | null {
   const raw = typeof input === "string" ? { slug: input } : input;
   const slug = raw.slug?.trim()
     ? slugFromName(raw.slug)
@@ -86,11 +86,11 @@ export function normalizePlatform(
 }
 
 export function normalizePlatforms(
-  inputs: ConnectButtonPlatformInput[] | undefined,
-): ConnectButtonPlatform[] {
+  inputs: ConnectButtonLogoInput[] | undefined,
+): ConnectButtonLogo[] {
   return (inputs ?? [])
     .map(normalizePlatform)
-    .filter((p): p is ConnectButtonPlatform => p !== null);
+    .filter((p): p is ConnectButtonLogo => p !== null);
 }
 
 /**
@@ -100,7 +100,7 @@ export function normalizePlatforms(
  */
 export function parsePlatformsAttribute(
   raw: string | null,
-): ConnectButtonPlatformInput[] {
+): ConnectButtonLogoInput[] {
   const value = raw?.trim();
   if (!value) return [];
   if (value.startsWith("[")) {
@@ -108,7 +108,7 @@ export function parsePlatformsAttribute(
       const parsed = JSON.parse(value) as unknown;
       return Array.isArray(parsed)
         ? parsed.filter(
-            (entry): entry is ConnectButtonPlatformInput =>
+            (entry): entry is ConnectButtonLogoInput =>
               typeof entry === "string" ||
               (typeof entry === "object" && entry !== null),
           )

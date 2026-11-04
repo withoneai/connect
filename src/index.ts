@@ -8,8 +8,6 @@ export type {
   ConnectButtonHandle,
   ConnectButtonLogo,
   ConnectButtonLogoInput,
-  ConnectButtonPlatform,
-  ConnectButtonPlatformInput,
   ConnectButtonProps,
   ConnectButtonSize,
   ConnectButtonState,

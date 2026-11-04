@@ -81,7 +81,7 @@ ONE_CLIENT_ID=…
 ONE_CLIENT_SECRET=one_secret_…                        # server only
 ONE_CONNECT_KEY=sk_live_…                             # server only; key mode
 ONE_REDIRECT_URI=https://yourapp.com/api/one/callback  # exactly the registered URL
-ONE_PERMISSION_SET=…                                  # optional: the Permission set ID
+ONE_PERMISSION_SET=…                                  # optional: the Permission set ID (never changes)
 ```
 
 ### Or from code
@@ -119,7 +119,7 @@ one connect types    # optional: tool slugs and action names autocomplete
 one connect create   # opens your browser to approve it, then writes .env
 ```
 
-The CLI opens a page in your signed-in browser showing the app as your users will see it. You approve it there; a new app's client secret and connect key are made on that page and shown once, so they never pass through the terminal. The CLI then writes `ONE_CLIENT_ID`, `ONE_REDIRECT_URI` and, for a list of tools, `ONE_PERMISSION_SET` to `.env` (an app that asks for everything has none, so the CLI removes it). `access` is `read-only`, `read-write`, `full-access`, or `custom` with `actions`, named as `one connect types` wrote them or by id. On Node older than 22.18, name the file `one.connect.mjs` and type it with `/** @type {import("@withone/connect/config").ConnectAppConfig} */`.
+The CLI opens a page in your signed-in browser showing the app as your users will see it. You approve it there; a new app's client secret and connect key are made on that page and shown once, so they never pass through the terminal. The CLI then writes `ONE_CLIENT_ID`, `ONE_REDIRECT_URI` and, for a list of tools, `ONE_PERMISSION_SET` to `.env` (an app that asks for everything needs none, so the CLI removes it; a server that still sends the old ID keeps working, because switching never deletes it). `access` is `read-only`, `read-write`, `full-access`, or `custom` with `actions`, named as `one connect types` wrote them or by id. On Node older than 22.18, name the file `one.connect.mjs` and type it with `/** @type {import("@withone/connect/config").ConnectAppConfig} */`.
 
 | Prop | |
 |---|---|
@@ -202,7 +202,7 @@ import { ConnectButton } from "@withone/connect/react";
 | `size` | `sm`, `md` or `lg`. |
 | `fullWidth` | Fills its container. |
 | `theme` | `light`, `dark` or `auto`. `connectTheme` sets One's page. |
-| `connector` | A connector slug (`gmail`). One's page opens that connector's connect screen first, then the usual list. |
+| `openApp` | An app's slug (`gmail`). One's page opens that app's connect screen first, then the usual list. Works whether your app asks for specific apps or for everything. |
 | `returnTo` | Where this flow returns to: a path on your app, such as `/chat/42`. Overrides the server's `returnTo` for this flow only. |
 | `label` / `connectedLabel` | Button text, and the text once connected. |
 | `disabled` | Not clickable. |
@@ -284,14 +284,14 @@ The user lands back on your `returnTo` page (`/` unless you set it) with the out
 
 Show your own text for each code and never text taken from the URL, since anyone can craft a link. Remove the parameters after reading them so a refresh does not repeat the message. To theme One's page, add `#one_theme=dark` or `#one_theme=light` to the link.
 
-### One connector first
+### One app first
 
-A chat or a settings page often needs a single tool connected now, not the whole list. Pass `connector`, and `returnTo` when the flow must come back to the page it started on:
+A chat or a settings page often needs a single app connected now, not the whole list. Pass `openApp`, and `returnTo` when the flow must come back to the page it started on:
 
 ```tsx
 const { open } = useOneConnect({
   authorizeUrl: "/api/one/authorize",
-  connector: "gmail",
+  openApp: "gmail",
   returnTo: "/chat/42",
 });
 
@@ -300,9 +300,10 @@ const { open } = useOneConnect({
 
 One's page still signs the user in and asks for the space. Then, instead of the list, it opens Gmail's connect screen straight away. The list follows with everything the user has connected, so they confirm the whole grant as always.
 
-- `connector` is a slug from One's catalog (`gmail`, `google-calendar`, `stripe`). A slug your permission set does not offer, or one the user already connected in that space, is ignored and the page opens on the list.
+- `openApp` is a slug from One's catalog (`gmail`, `google-calendar`, `stripe`). An app that asks for everything can open any app in the catalog; an app that asks for specific apps can open only one it asks for. A slug outside that, or one the user already connected in that space, is ignored and the page opens on the list.
+- `connector` and `#one_connector` are the old names. They still work.
 - `returnTo` must be a path on your app. Anything else is ignored and the server's `returnTo` applies.
-- Both work the same on `ConnectButton`, `createConnectFlow` and a plain link: `<a href="/api/one/authorize?one_return_to=%2Fchat%2F42#one_connector=gmail">`.
+- Both work the same on `ConnectButton`, `createConnectFlow` and a plain link: `<a href="/api/one/authorize?one_return_to=%2Fchat%2F42#one_open_app=gmail">`.
 
 ## 5 · Using the grant
 
@@ -527,7 +528,7 @@ The job renews both tokens when either is within 3 days of expiring. Without it,
 | `createConnectFlow(options)` | Your own button anywhere. |
 | `readConnectReturn()` | How this page load ended a flow, or null. |
 
-`useOneConnect` and `createConnectFlow` take `authorizeUrl`, `connectTheme`, `connector`, `returnTo`, `onSuccess`, `onError` and `onCancel`.
+`useOneConnect` and `createConnectFlow` take `authorizeUrl`, `connectTheme`, `openApp`, `returnTo`, `onSuccess`, `onError` and `onCancel`.
 
 ### Config · `@withone/connect/config`
 
