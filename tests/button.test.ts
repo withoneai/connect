@@ -216,9 +216,12 @@ describe("the button", () => {
     expect(chips[3].textContent).toBe("+2");
   });
 
-  it("still draws logos passed under the old `platforms` name", () => {
-    mountConnectButton(container, { authorizeUrl: "/a", platforms: ["gmail"] });
-    expect(buttonIn(container).querySelectorAll(".chip")).toHaveLength(1);
+  it("no longer reads the removed `platforms` prop", () => {
+    mountConnectButton(container, {
+      authorizeUrl: "/a",
+      platforms: ["gmail"],
+    } as never);
+    expect(buttonIn(container).querySelectorAll(".chip")).toHaveLength(0);
   });
 
   it("leaves the accent colour to the host's CSS variables", () => {
@@ -272,6 +275,26 @@ describe("<one-connect-button>", () => {
     element.setAttribute("connected", "");
     expect(buttonIn(element)).toBe(button);
     expect(labelOf(element)).toBe("Connected");
+  });
+
+  it("puts the open-app attribute on the link, and still reads the old connector one", () => {
+    const element = document.createElement("one-connect-button");
+    element.setAttribute("authorize-url", "/api/one/authorize");
+    element.setAttribute("open-app", "gmail");
+    container.appendChild(element);
+    buttonIn(element).click();
+    expect(assign).toHaveBeenLastCalledWith(
+      `${location.origin}/api/one/authorize#one_open_app=gmail`,
+    );
+
+    const legacy = document.createElement("one-connect-button");
+    legacy.setAttribute("authorize-url", "/api/one/authorize");
+    legacy.setAttribute("connector", "slack");
+    container.appendChild(legacy);
+    buttonIn(legacy).click();
+    expect(assign).toHaveBeenLastCalledWith(
+      `${location.origin}/api/one/authorize#one_open_app=slack`,
+    );
   });
 });
 

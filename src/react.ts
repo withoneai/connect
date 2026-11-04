@@ -30,7 +30,7 @@ export interface ConnectButtonProps extends ConnectButtonCoreProps {
 const visualKey = (props: ConnectButtonCoreProps): string =>
   JSON.stringify([
     props.authorizeUrl,
-    props.logos ?? props.platforms ?? [],
+    props.logos ?? [],
     props.connected,
     props.disabled,
     props.variant,
@@ -38,7 +38,7 @@ const visualKey = (props: ConnectButtonCoreProps): string =>
     props.fullWidth,
     props.theme,
     props.connectTheme,
-    props.connector,
+    props.openApp ?? props.connector,
     props.returnTo,
     props.label,
     props.connectedLabel,

@@ -1,4 +1,4 @@
-import { CONNECTOR_PARAM, RETURN_TO_PARAM, THEME_PARAM } from "./constants";
+import { OPEN_APP_PARAM, RETURN_TO_PARAM, THEME_PARAM } from "./constants";
 import { hasReturnParams, parseReturn, stripReturnParams } from "./return";
 import type {
   OneConnectFlow,
@@ -91,7 +91,7 @@ function bindPageshow(): void {
   });
 }
 
-/** The theme and the connector ride the fragment: no server sees it,
+/** The theme and the app to open ride the fragment: no server sees it,
  *  and it survives every redirect to One's page. The return path is a
  *  query param for the app's own route, which reads it and keeps it. */
 const authorizeUrlFor = (options: OneConnectFlowOptions): string => {
@@ -100,8 +100,8 @@ const authorizeUrlFor = (options: OneConnectFlowOptions): string => {
     if (options.returnTo) url.searchParams.set(RETURN_TO_PARAM, options.returnTo);
     const fragment = new URLSearchParams();
     if (options.connectTheme) fragment.set(THEME_PARAM, options.connectTheme);
-    const connector = options.connector?.trim().toLowerCase();
-    if (connector) fragment.set(CONNECTOR_PARAM, connector);
+    const app = (options.openApp ?? options.connector)?.trim().toLowerCase();
+    if (app) fragment.set(OPEN_APP_PARAM, app);
     const hash = fragment.toString();
     if (hash) url.hash = hash;
     return url.toString();

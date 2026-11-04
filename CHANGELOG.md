@@ -2,6 +2,17 @@
 
 Every release of `@withone/connect`. Until 1.0, a minor version may remove APIs an earlier minor deprecated; patch versions only fix bugs or docs.
 
+## 0.21.0 · 2026-11-04
+
+### New
+- **`openApp` opens one app first.** `openApp: "gmail"` (attribute `open-app` on `<one-connect-button>`) sends the user to that app's connect screen right after sign-in and the space step, then the usual list. It is the new name for `connector`, and the link now carries `#one_open_app=` instead of `#one_connector=`. `connector` and `#one_connector` keep working; One's page reads both. It now also works for an app that asks for everything: One's page looks the app up in its full catalog, where before it opened the list.
+
+### Removed
+- The `platforms` prop, its `platforms` attribute and the `ConnectButtonPlatform` / `ConnectButtonPlatformInput` types, deprecated since 0.15. Use `logos`, `ConnectButtonLogo` and `ConnectButtonLogoInput`.
+
+### Docs
+- `ONE_PERMISSION_SET` never changes: switching an app between specific apps and everything edits the same permission set, so a server that still sends the ID keeps working.
+
 ## 0.20.0 · 2026-11-03
 
 ### Changed

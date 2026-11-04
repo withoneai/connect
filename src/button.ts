@@ -151,7 +151,7 @@ const icon = (svg: string, className = "icon"): HTMLSpanElement => {
 };
 
 function buildStack(props: ConnectButtonProps): HTMLElement | null {
-  const platforms = normalizePlatforms(props.logos ?? props.platforms);
+  const platforms = normalizePlatforms(props.logos);
   if (platforms.length === 0) return null;
   const stack = el("span", "stack");
   stack.setAttribute("aria-hidden", "true");
@@ -182,7 +182,7 @@ const flowOptions = (
 ): OneConnectFlowOptions => ({
   authorizeUrl: props.authorizeUrl,
   connectTheme: props.connectTheme,
-  connector: props.connector,
+  openApp: props.openApp ?? props.connector,
   returnTo: props.returnTo,
   ...handlers,
 });
@@ -376,7 +376,6 @@ export function mountConnectButton(
 const ATTRIBUTES = [
   "authorize-url",
   "logos",
-  "platforms",
   "connected",
   "disabled",
   "variant",
@@ -384,6 +383,7 @@ const ATTRIBUTES = [
   "full-width",
   "theme",
   "connect-theme",
+  "open-app",
   "connector",
   "return-to",
   "label",
@@ -448,9 +448,7 @@ export function registerConnectButton(): void {
     private props(authorizeUrl: string): ConnectButtonProps {
       return {
         authorizeUrl,
-        logos: parsePlatformsAttribute(
-          this.getAttribute("logos") ?? this.getAttribute("platforms"),
-        ),
+        logos: parsePlatformsAttribute(this.getAttribute("logos")),
         connected: flag(this, "connected"),
         disabled: flag(this, "disabled"),
         variant: attributeAs(this, "variant", ["default", "accent", "block"]),
@@ -458,7 +456,10 @@ export function registerConnectButton(): void {
         fullWidth: flag(this, "full-width"),
         theme: attributeAs(this, "theme", ["light", "dark", "auto"]),
         connectTheme: attributeAs(this, "connect-theme", ["light", "dark"]),
-        connector: this.getAttribute("connector") ?? undefined,
+        openApp:
+          this.getAttribute("open-app") ??
+          this.getAttribute("connector") ??
+          undefined,
         returnTo: this.getAttribute("return-to") ?? undefined,
         label: this.getAttribute("label") ?? undefined,
         connectedLabel: this.getAttribute("connected-label") ?? undefined,

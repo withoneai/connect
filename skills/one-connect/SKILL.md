@@ -204,7 +204,7 @@ import { ConnectButton } from "@withone/connect/react";
 
 <ConnectButton
   authorizeUrl="/api/one/authorize"
-  logos={["gmail", "stripe"]}       // connector slugs, decoration only
+  logos={["gmail", "stripe"]}       // app slugs, decoration only
   connected={hasGrant}              // from the server: await oneConnect.isConnected(userId)
   onSuccess={() => { /* refetch app state */ }}
   onError={(message) => { /* show message */ }}
@@ -213,9 +213,9 @@ import { ConnectButton } from "@withone/connect/react";
 
 Optional props: `variant` ("default" | "accent" | "block"), `size` ("sm" |
 "md" | "lg"), `fullWidth`, `theme` ("light" | "dark" | "auto"),
-`connectTheme` ("light" | "dark", One's page), `connector` (a slug such as
-"gmail": One's page opens that connector's connect screen first, then the
-usual list), `returnTo` (a path on the app this flow returns to), `label`,
+`connectTheme` ("light" | "dark", One's page), `openApp` (a slug such as
+"gmail": One's page opens that app's connect screen first, then the usual
+list; works for specific apps and for everything), `returnTo` (a path on the app this flow returns to), `label`,
 `connectedLabel`, `description`, `disabled`, `onCancel`. The accent variant's colours come
 from the host's `--one-connect-accent` and `--one-connect-accent-fg` CSS
 variables.
@@ -243,14 +243,14 @@ keep it and wire the flow to it instead of adding a second style:
   button.addEventListener("click", () => flow.open());
   ```
 
-- One connector at a time (a chat that says "Connect Gmail", a settings
-  row): `useOneConnect({ authorizeUrl, connector: "gmail", returnTo: "/chat/42" })`.
+- One app at a time (a chat that says "Connect Gmail", a settings
+  row): `useOneConnect({ authorizeUrl, openApp: "gmail", returnTo: "/chat/42" })`.
   One's page still signs the user in and asks for the space, then opens
   Gmail's connect screen instead of the list; the list follows with
   everything connected. `returnTo` must be a path on the app.
 
 - No SDK in the browser (server-rendered pages): a plain link,
-  `<a href="/api/one/authorize">` (add `#one_connector=gmail` and
+  `<a href="/api/one/authorize">` (add `#one_open_app=gmail` and
   `?one_return_to=%2Fchat%2F42` for the above). The user returns with
   `?one_connect=success`, or `?one_connect=error&one_connect_error=` with
   `declined`, `expired` or `failed`. Show the app's own text per code, never
