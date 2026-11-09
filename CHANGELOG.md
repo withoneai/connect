@@ -2,6 +2,11 @@
 
 Every release of `@withone/connect`. Until 1.0, a minor version may remove APIs an earlier minor deprecated; patch versions only fix bugs or docs.
 
+## 0.23.0 · 2026-11-09
+
+### New
+- **`listConnections` returns every connection.** It used to return One's first page, 20 connections. With no options it now reads every page (150 per call) and returns them all; if any page fails, the call throws instead of returning part of the list. Pass `{ limit, page }` to get one page instead: `page` is 1-based, `limit` is 20 when omitted and capped at 150 by One.
+
 ## 0.22.1 · 2026-11-09
 
 ### Changed

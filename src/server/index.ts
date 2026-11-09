@@ -56,6 +56,7 @@ import {
   type OneConnectTokenConfig,
   type OneConnectTokens,
   type PlatformAction,
+  type ListConnectionsOptions,
   type ReachableConnection,
   type RefreshIfExpiringOptions,
   type RunActionInput,
@@ -89,6 +90,9 @@ function oneRefusal(response: Response, data: unknown): OneRefusal | null {
 }
 
 const CATALOG_PAGE_SIZE = 100;
+/** One's largest page; reading every connection takes the fewest calls. */
+const CONNECTIONS_PAGE_SIZE = 150;
+const CONNECTIONS_MAX_PAGES = 20;
 const CATALOG_MAX_PAGES = 20;
 const SEARCH_DEFAULT_LIMIT = 5;
 
@@ -166,8 +170,12 @@ export interface OneConnectClient {
   /** Drops the app's copy of what it stored. The user revokes the grant
    *  itself from their One dashboard. */
   disconnect: (userId: string) => Promise<void>;
-  /** The connections the grant reaches, each with its access. */
-  listConnections: (userId: string) => Promise<ReachableConnection[]>;
+  /** The connections the grant reaches, each with its access: every one
+   *  of them, or a single page when `page` or `limit` is given. */
+  listConnections: (
+    userId: string,
+    options?: ListConnectionsOptions,
+  ) => Promise<ReachableConnection[]>;
   /** Every catalog action of a platform. What exists, not what is
    *  permitted; the grant decides that when the action runs. */
   listActions: (userId: string, platform: string) => Promise<PlatformAction[]>;
@@ -445,8 +453,17 @@ export function createOneConnect(
     );
   };
 
-  const listConnections = async (userId: string): Promise<ReachableConnection[]> => {
-    const response = await oneFetch(userId, "/connections/reachable");
+  type ConnectionsPage = { rows?: ReachableConnection[]; pages?: number };
+
+  const connectionsPage = async (
+    userId: string,
+    limit: number,
+    page: number,
+  ): Promise<ConnectionsPage> => {
+    const response = await oneFetch(
+      userId,
+      `/connections/reachable?limit=${limit}&page=${page}`,
+    );
     if (!response.ok) {
       const refused = credential.refusal(response.status, await response.text());
       if (refused) throw refused;
@@ -456,8 +473,34 @@ export function createOneConnect(
         response.status,
       );
     }
-    const body = (await response.json()) as { rows?: ReachableConnection[] };
-    return body.rows ?? [];
+    return (await response.json()) as ConnectionsPage;
+  };
+
+  /**
+   * One page when the caller names one; otherwise every page, so a user
+   * with more connections than one page holds is never cut short. A page
+   * that fails fails the whole list rather than returning part of it.
+   */
+  const listConnections = async (
+    userId: string,
+    options: ListConnectionsOptions = {},
+  ): Promise<ReachableConnection[]> => {
+    if (options.page !== undefined || options.limit !== undefined) {
+      const page = await connectionsPage(
+        userId,
+        Math.max(1, Math.floor(options.limit ?? 20)),
+        Math.max(1, Math.floor(options.page ?? 1)),
+      );
+      return page.rows ?? [];
+    }
+    const first = await connectionsPage(userId, CONNECTIONS_PAGE_SIZE, 1);
+    const pages = Math.min(Math.max(first.pages ?? 1, 1), CONNECTIONS_MAX_PAGES);
+    const rest = await Promise.all(
+      Array.from({ length: pages - 1 }, (_, index) =>
+        connectionsPage(userId, CONNECTIONS_PAGE_SIZE, index + 2),
+      ),
+    );
+    return [first, ...rest].flatMap((page) => page.rows ?? []);
   };
 
   /**
