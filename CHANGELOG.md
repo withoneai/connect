@@ -2,6 +2,11 @@
 
 Every release of `@withone/connect`. Until 1.0, a minor version may remove APIs an earlier minor deprecated; patch versions only fix bugs or docs.
 
+## 0.22.1 · 2026-11-09
+
+### Changed
+- The app logos on the button are bigger in their chips (16px in the medium chip, was 14px; small 14px, large 19px), so they read at a glance. The chips themselves are the same size.
+
 ## 0.22.0 · 2026-11-09
 
 ### New

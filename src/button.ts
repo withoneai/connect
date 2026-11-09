@@ -47,9 +47,9 @@ const STYLES = `
 .b[disabled]{cursor:not-allowed;opacity:.5;box-shadow:none}
 .b[aria-busy="true"]{cursor:progress}
 .b{--ease:cubic-bezier(.2,.9,.25,1)}
-.b[data-size="sm"]{--fs:13px;--pad:8px 12px 8px 10px;--gap:8px;--chip:18px;--logo:12px}
-.b[data-size="md"]{--fs:14.5px;--pad:12px 16px 12px 14px;--gap:12px;--chip:22px;--logo:14px}
-.b[data-size="lg"]{--fs:16px;--pad:14px 20px 14px 16px;--gap:12px;--chip:26px;--logo:16px}
+.b[data-size="sm"]{--fs:13px;--pad:8px 12px 8px 10px;--gap:8px;--chip:18px;--logo:14px}
+.b[data-size="md"]{--fs:14.5px;--pad:12px 16px 12px 14px;--gap:12px;--chip:22px;--logo:16px}
+.b[data-size="lg"]{--fs:16px;--pad:14px 20px 14px 16px;--gap:12px;--chip:26px;--logo:19px}
 .b[data-theme="light"],.b[data-theme="auto"]{--ink-bg:${CARBON};--ink-fg:${WHITE};--surface:${WHITE};--surface-fg:${CARBON};
   --muted:#5B6560;--line:#D5DAD7;--ring:${CARBON};--shadow-base:0 1px 2px rgba(10,12,11,.08),0 4px 14px rgba(10,12,11,.06);
   --shadow-strong:0 1px 2px rgba(10,12,11,.12),0 6px 18px rgba(10,12,11,.1)}
