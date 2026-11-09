@@ -231,6 +231,15 @@ export interface PlatformAction {
   tags?: string[];
 }
 
+export interface ListConnectionsOptions {
+  /** Return just this page, 1-based. Omit it (and `limit`) to get every
+   *  connection the grant reaches. */
+  page?: number;
+  /** Connections per page when asking for one page. One caps it at 150;
+   *  20 when omitted. */
+  limit?: number;
+}
+
 export interface SearchActionsOptions {
   /** How many candidates to return. Five when omitted. */
   limit?: number;

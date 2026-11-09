@@ -516,7 +516,7 @@ The job renews both tokens when either is within 3 days of expiring. Without it,
 
 | Method | Mode | |
 |---|---|---|
-| `listConnections(userId)` | both | The connections the grant reaches, each with its `access`. |
+| `listConnections(userId, { limit?, page? })` | both | The connections the grant reaches, each with its `access`. Every one of them by default; pass `page` (1-based) and `limit` (up to 150) for one page. |
 | `searchActions(userId, platform, query, { limit?, mode? })` | both | Best matches first, 5 by default. `mode` is `"execute"` or `"knowledge"`. |
 | `getActionKnowledge(userId, actionId)` | both | The action's guide, input shape, method and path. |
 | `listActions(userId, platform)` | both | Every action of a platform. |

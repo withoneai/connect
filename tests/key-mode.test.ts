@@ -216,7 +216,7 @@ describe("key mode", () => {
     expect(rows).toEqual([{ key: "k1", platform: "gmail", access: { policy: "full" } }]);
 
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe("https://api.example.test/v1/connections/reachable");
+    expect(url).toBe("https://api.example.test/v1/connections/reachable?limit=150&page=1");
     const headers = new Headers(init?.headers);
     expect(headers.get("x-one-secret")).toBe(CONNECT_KEY);
     expect(headers.get("x-one-connect-user-id")).toBe(CONNECT_USER_ID);
@@ -224,6 +224,41 @@ describe("key mode", () => {
     // A personal-space grant names no tenant.
     expect(headers.has("x-one-organization-id")).toBe(false);
     expect(headers.has("x-one-project-id")).toBe(false);
+  });
+
+  it("reads every page of connections when no page is named", async () => {
+    users.users.set("u1", CONNECT_USER_ID);
+    const row = (key: string) => ({ key, platform: "gmail", access: { policy: "full" } });
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify({ rows: [row("k1")], pages: 3 })))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ rows: [row("k2")], pages: 3 })))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ rows: [row("k3")], pages: 3 })));
+    const rows = await client().listConnections("u1");
+    expect(rows.map((r) => r.key)).toEqual(["k1", "k2", "k3"]);
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      "https://api.example.test/v1/connections/reachable?limit=150&page=1",
+      "https://api.example.test/v1/connections/reachable?limit=150&page=2",
+      "https://api.example.test/v1/connections/reachable?limit=150&page=3",
+    ]);
+  });
+
+  it("returns one page when a page or limit is named", async () => {
+    users.users.set("u1", CONNECT_USER_ID);
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ rows: [{ key: "k9", platform: "slack", access: { policy: "full" } }], pages: 4 })),
+    );
+    const rows = await client().listConnections("u1", { limit: 50, page: 2 });
+    expect(rows.map((r) => r.key)).toEqual(["k9"]);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0]).toBe("https://api.example.test/v1/connections/reachable?limit=50&page=2");
+  });
+
+  it("fails the whole list when a later page fails, rather than returning part of it", async () => {
+    users.users.set("u1", CONNECT_USER_ID);
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify({ rows: [], pages: 2 })))
+      .mockResolvedValueOnce(new Response("upstream", { status: 500 }));
+    await expect(client().listConnections("u1")).rejects.toMatchObject({ code: "request_failed", status: 500 });
   });
 
   it("names the user's space on every call when they granted from one", async () => {
