@@ -22,6 +22,7 @@ import type { PropType } from "vue";
 
 import {
   renderConnectButton,
+  resolveVariant,
   type ConnectButtonHandle,
   type ConnectButtonLogoInput,
   type ConnectButtonProps,
@@ -64,6 +65,8 @@ export const ConnectButton = defineComponent({
     label: { type: String, default: undefined },
     connectedLabel: { type: String, default: undefined },
     description: { type: String, default: undefined },
+    accent: { type: String, default: undefined },
+    accentText: { type: String, default: undefined },
   },
   emits: {
     success: () => true,
@@ -101,7 +104,7 @@ export const ConnectButton = defineComponent({
       h("span", {
         ref: host,
         class: "one-connect",
-        "data-variant": props.variant ?? "default",
+        "data-variant": resolveVariant(props),
         "data-full-width": props.fullWidth ? "" : undefined,
       });
   },

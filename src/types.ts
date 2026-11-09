@@ -106,10 +106,18 @@ export interface ConnectButtonProps {
   connected?: boolean;
   /** Not clickable, for example until terms are accepted. */
   disabled?: boolean;
-  /** default = neutral, accent = your brand colour (set
+  /** default = neutral, accent = your brand colour (`accent` below, or
    *  `--one-connect-accent` and `--one-connect-accent-fg` on the host),
-   *  block = a card with a description and a "Secured by One" foot. */
+   *  block = a card with a description and a "Secured by One" foot.
+   *  Defaults to accent when `accent` is set, else default. */
   variant?: ConnectButtonVariant;
+  /** Your brand colour, any CSS colour ("#F4A938"): the accent
+   *  variant's fill, and the variant the button uses when `variant` is
+   *  not set. Wins over `--one-connect-accent` on the host. */
+  accent?: string;
+  /** The accent variant's text and icon colour. When omitted with a hex
+   *  `accent`, the button picks dark or white text, whichever reads. */
+  accentText?: string;
   size?: ConnectButtonSize;
   /** Stretches to the width of its container. */
   fullWidth?: boolean;

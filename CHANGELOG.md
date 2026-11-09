@@ -2,6 +2,11 @@
 
 Every release of `@withone/connect`. Until 1.0, a minor version may remove APIs an earlier minor deprecated; patch versions only fix bugs or docs.
 
+## 0.22.0 · 2026-11-09
+
+### New
+- **Your brand colour as a prop.** `accent="#F4A938"` (attribute `accent` on `<one-connect-button>`) paints the button in your colour, and `accentText` (`accent-text`) sets the text on it. Leave `accentText` out with a hex colour and the button picks dark or white text, whichever reads. `accent` alone switches the button to the `accent` variant; an explicit `variant` still wins. The Connected state keeps the same colours. The props set `--one-connect-accent` and `--one-connect-accent-fg` on the button through the CSSOM, so they work under a strict `style-src` and win over the same variables set on the host, which keep working.
+
 ## 0.21.0 · 2026-11-04
 
 ### New

@@ -198,7 +198,8 @@ import { ConnectButton } from "@withone/connect/react";
 | `authorizeUrl` | Your authorize route. Required. |
 | `logos` | Connector slugs to draw as logos. Decoration only; your permission set decides what One asks for. |
 | `connected` | Whether the user already has a grant, from your server. |
-| `variant` | `default`, `accent` (your brand colour, set with `--one-connect-accent` and `--one-connect-accent-fg`), or `block` (a card with a `description`). |
+| `variant` | `default`, `accent` (your brand colour), or `block` (a card with a `description`). Setting `accent` alone picks `accent`. |
+| `accent` / `accentText` | Your brand colour (`"#F4A938"`) and the text on it. Leave `accentText` out and the button picks dark or white text, whichever reads. |
 | `size` | `sm`, `md` or `lg`. |
 | `fullWidth` | Fills its container. |
 | `theme` | `light`, `dark` or `auto`. `connectTheme` sets One's page. |
@@ -221,7 +222,27 @@ Other frameworks take the same props:
 
 Svelte: `use:connectButton={{ authorizeUrl, logos }}` from `@withone/connect/svelte`.
 
-To match your design, set `--one-connect-font`, `--one-connect-radius`, `--one-connect-accent` and `--one-connect-accent-fg` on the host, or style `::part(button)`.
+To match your brand, pass your colour:
+
+```tsx
+<ConnectButton
+  authorizeUrl="/api/one/authorize"
+  label="Connect your tools"
+  accent="#F4A938"
+  accentText="#16233F"
+/>
+```
+
+```html
+<one-connect-button
+  authorize-url="/api/one/authorize"
+  label="Connect your tools"
+  accent="#F4A938"
+  accent-text="#16233F"
+></one-connect-button>
+```
+
+The Connected state keeps the same colours. For the rest of your design, set `--one-connect-font` and `--one-connect-radius` on the host, or style `::part(button)`. `--one-connect-accent` and `--one-connect-accent-fg` still work; the props win when both are set.
 
 ### Your own button
 

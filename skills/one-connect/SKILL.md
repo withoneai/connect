@@ -216,9 +216,10 @@ Optional props: `variant` ("default" | "accent" | "block"), `size` ("sm" |
 `connectTheme` ("light" | "dark", One's page), `openApp` (a slug such as
 "gmail": One's page opens that app's connect screen first, then the usual
 list; works for specific apps and for everything), `returnTo` (a path on the app this flow returns to), `label`,
-`connectedLabel`, `description`, `disabled`, `onCancel`. The accent variant's colours come
-from the host's `--one-connect-accent` and `--one-connect-accent-fg` CSS
-variables.
+`connectedLabel`, `description`, `disabled`, `onCancel`, `accent` and
+`accentText` (the brand colour and the text on it, e.g. `accent="#F4A938"`;
+`accent` alone switches to the accent variant and picks readable text).
+Attributes on `<one-connect-button>`: `accent` and `accent-text`.
 
 Vue: `@withone/connect/vue`, same props. Svelte: `use:connectButton` from
 `@withone/connect/svelte`. Anything else: `import "@withone/connect"` and use

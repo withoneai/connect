@@ -231,6 +231,61 @@ describe("the button", () => {
     expect(button.getAttribute("style")).toBeNull();
   });
 
+  it("takes the brand colour as a prop and uses the accent variant", () => {
+    const handle = mountConnectButton(container, {
+      authorizeUrl: "/a",
+      accent: "#F4A938",
+    });
+    const button = buttonIn(container);
+    expect(button.dataset.variant).toBe("accent");
+    expect(
+      container.querySelector(".one-connect")?.getAttribute("data-variant"),
+    ).toBe("accent");
+    expect(button.style.getPropertyValue("--one-connect-accent")).toBe(
+      "#F4A938",
+    );
+    // A light fill gets carbon text; a dark one gets white.
+    expect(button.style.getPropertyValue("--one-connect-accent-fg")).toBe(
+      "#0A0C0B",
+    );
+    handle.update({ authorizeUrl: "/a", accent: "#16233F" });
+    expect(button.style.getPropertyValue("--one-connect-accent-fg")).toBe(
+      "#FFFFFF",
+    );
+    handle.update({
+      authorizeUrl: "/a",
+      accent: "#16233F",
+      accentText: "#F4A938",
+    });
+    expect(button.style.getPropertyValue("--one-connect-accent-fg")).toBe(
+      "#F4A938",
+    );
+    // Taking it away leaves the host's variables in charge again.
+    handle.update({ authorizeUrl: "/a", variant: "accent" });
+    expect(button.getAttribute("style")).toBeNull();
+  });
+
+  it("keeps an explicit variant over the accent prop", () => {
+    mountConnectButton(container, {
+      authorizeUrl: "/a",
+      variant: "block",
+      accent: "#F4A938",
+    });
+    expect(buttonIn(container).dataset.variant).toBe("block");
+  });
+
+  it("leaves text to the stylesheet for a colour it can't read", () => {
+    mountConnectButton(container, {
+      authorizeUrl: "/a",
+      accent: "rebeccapurple",
+    });
+    const button = buttonIn(container);
+    expect(button.style.getPropertyValue("--one-connect-accent")).toBe(
+      "rebeccapurple",
+    );
+    expect(button.style.getPropertyValue("--one-connect-accent-fg")).toBe("");
+  });
+
   it("removes everything on destroy", () => {
     const handle = mountConnectButton(container, { authorizeUrl: "/a" });
     handle.destroy();
@@ -250,6 +305,21 @@ describe("<one-connect-button>", () => {
       "logos",
       "variant",
     ]);
+  });
+
+  it("reads accent and accent-text attributes", () => {
+    container.innerHTML =
+      '<one-connect-button authorize-url="/a" accent="#16233F" accent-text="#F4A938"></one-connect-button>';
+    const button = container
+      .querySelector("one-connect-button")!
+      .shadowRoot!.querySelector("button")!;
+    expect(button.dataset.variant).toBe("accent");
+    expect(button.style.getPropertyValue("--one-connect-accent")).toBe(
+      "#16233F",
+    );
+    expect(button.style.getPropertyValue("--one-connect-accent-fg")).toBe(
+      "#F4A938",
+    );
   });
 
   it("maps attributes to props and dispatches events with a code", async () => {

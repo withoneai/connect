@@ -3,6 +3,7 @@ export {
   mountConnectButton,
   registerConnectButton,
   renderConnectButton,
+  resolveVariant,
 } from "./button";
 export type {
   ConnectButtonHandle,
@@ -19,4 +20,3 @@ export type {
   OneConnectReturn,
   OneConnectTheme,
 } from "./types";
-
