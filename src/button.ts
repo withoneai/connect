@@ -21,7 +21,8 @@ import type {
  *
  * Theming hooks for the host page: `--one-connect-font`,
  * `--one-connect-radius`, `--one-connect-accent` and
- * `--one-connect-accent-fg` (the accent variant's fill and text), and
+ * `--one-connect-accent-fg` (the accent variant's fill and text; the
+ * `accent` / `accentText` props set the same two and win), and
  * `::part(button)` / `::part(label)` on the host (`one-connect-button`,
  * or `.one-connect` for the wrappers).
  */
@@ -176,6 +177,50 @@ function buildStack(props: ConnectButtonProps): HTMLElement | null {
   return stack;
 }
 
+/** @internal The variant drawn: the one asked for, else accent when a brand colour
+ *  is given, else default. */
+export const resolveVariant = (props: ConnectButtonProps) =>
+  props.variant ?? (props.accent ? "accent" : "default");
+
+/** Dark or white text on a hex fill, whichever reads (WCAG relative
+ *  luminance). Null for anything that isn't a hex colour: the stylesheet's
+ *  default stands. */
+export function readableTextOn(fill: string): string | null {
+  const hex = fill.trim().replace(/^#/, "");
+  const full =
+    hex.length === 3
+      ? hex
+          .split("")
+          .map((c) => c + c)
+          .join("")
+      : hex;
+  if (!/^[0-9a-f]{6}$/i.test(full)) return null;
+  const channel = (i: number) => {
+    const v = parseInt(full.slice(i, i + 2), 16) / 255;
+    return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+  };
+  const luminance =
+    0.2126 * channel(0) + 0.7152 * channel(2) + 0.0722 * channel(4);
+  // Contrast of carbon text on the fill against white text on it
+  // (carbon's own luminance is about 0.0037).
+  const carbonOnFill = (luminance + 0.05) / (0.0037 + 0.05);
+  const whiteOnFill = 1.05 / (luminance + 0.05);
+  return carbonOnFill >= whiteOnFill ? CARBON : WHITE;
+}
+
+/** Brand colours from props, set on the button through the CSSOM (which
+ *  a strict style-src allows), so they win over the host's variables. */
+function applyAccent(button: HTMLElement, props: ConnectButtonProps): void {
+  const accent = props.accent?.trim();
+  const text =
+    props.accentText?.trim() || (accent ? readableTextOn(accent) : null);
+  if (accent) button.style.setProperty("--one-connect-accent", accent);
+  else button.style.removeProperty("--one-connect-accent");
+  if (text) button.style.setProperty("--one-connect-accent-fg", text);
+  else button.style.removeProperty("--one-connect-accent-fg");
+  if (!button.getAttribute("style")) button.removeAttribute("style");
+}
+
 const flowOptions = (
   props: ConnectButtonProps,
   handlers: Pick<OneConnectFlowOptions, "onSuccess" | "onError" | "onCancel">,
@@ -256,7 +301,7 @@ export function renderConnectButton(
   const render = () => {
     if (destroyed) return;
     const current = state();
-    const variant = props.variant ?? "default";
+    const variant = resolveVariant(props);
     const text =
       current === "connecting"
         ? "Connecting…"
@@ -265,6 +310,7 @@ export function renderConnectButton(
           : (props.label ?? "Connect your apps");
 
     button.dataset.variant = variant;
+    applyAccent(button, props);
     button.dataset.size = props.size ?? "md";
     button.dataset.theme = props.theme ?? "light";
     button.dataset.state = current;
@@ -353,7 +399,7 @@ export function mountConnectButton(
   const host = document.createElement("span");
   host.className = "one-connect";
   const layout = (next: ConnectButtonProps) => {
-    host.setAttribute("data-variant", next.variant ?? "default");
+    host.setAttribute("data-variant", resolveVariant(next));
     host.toggleAttribute("data-full-width", Boolean(next.fullWidth));
   };
   layout(props);
@@ -389,6 +435,8 @@ const ATTRIBUTES = [
   "label",
   "connected-label",
   "description",
+  "accent",
+  "accent-text",
 ] as const;
 
 /** An attribute narrowed to a known set of values; anything else is
@@ -464,6 +512,8 @@ export function registerConnectButton(): void {
         label: this.getAttribute("label") ?? undefined,
         connectedLabel: this.getAttribute("connected-label") ?? undefined,
         description: this.getAttribute("description") ?? undefined,
+        accent: this.getAttribute("accent") ?? undefined,
+        accentText: this.getAttribute("accent-text") ?? undefined,
         onSuccess: () => {
           this.onSuccess?.();
           this.dispatchEvent(new CustomEvent("success"));

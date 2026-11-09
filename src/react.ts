@@ -12,6 +12,7 @@ import {
   createConnectFlow,
   readConnectReturn,
   renderConnectButton,
+  resolveVariant,
   type ConnectButtonHandle,
   type ConnectButtonProps as ConnectButtonCoreProps,
   type ConnectFailureCode,
@@ -43,6 +44,8 @@ const visualKey = (props: ConnectButtonCoreProps): string =>
     props.label,
     props.connectedLabel,
     props.description,
+    props.accent,
+    props.accentText,
   ]);
 
 export function ConnectButton(props: ConnectButtonProps): ReactElement {
@@ -91,7 +94,7 @@ export function ConnectButton(props: ConnectButtonProps): ReactElement {
       ? `one-connect ${props.className}`
       : "one-connect",
     style: props.style,
-    "data-variant": props.variant ?? "default",
+    "data-variant": resolveVariant(props),
     "data-full-width": props.fullWidth ? "" : undefined,
   });
 }
