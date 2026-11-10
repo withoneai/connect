@@ -199,7 +199,7 @@ import { ConnectButton } from "@withone/connect/react";
 | `logos` | Connector slugs to draw as logos. Decoration only; your permission set decides what One asks for. |
 | `connected` | Whether the user already has a grant, from your server. |
 | `variant` | `default`, `accent` (your brand colour), or `block` (a card with a `description`). Setting `accent` alone picks `accent`. |
-| `accent` / `accentText` | Your brand colour (`"#F4A938"`) and the text on it. Leave `accentText` out and the button picks dark or white text, whichever reads. |
+| `accent` / `accentText` | Your brand colour (`"#F4A938"`) and the text on it. Leave `accentText` out and the button uses white text, or dark text on a colour too pale for white. |
 | `size` | `sm`, `md` or `lg`. |
 | `fullWidth` | Fills its container. |
 | `theme` | `light`, `dark` or `auto`. `connectTheme` sets One's page. |

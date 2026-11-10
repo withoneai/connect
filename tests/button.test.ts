@@ -244,7 +244,7 @@ describe("the button", () => {
     expect(button.style.getPropertyValue("--one-connect-accent")).toBe(
       "#F4A938",
     );
-    // A light fill gets carbon text; a dark one gets white.
+    // A pale fill gets carbon text; a dark one gets white.
     expect(button.style.getPropertyValue("--one-connect-accent-fg")).toBe(
       "#0A0C0B",
     );
@@ -252,6 +252,19 @@ describe("the button", () => {
     expect(button.style.getPropertyValue("--one-connect-accent-fg")).toBe(
       "#FFFFFF",
     );
+    // Brand mid-tones get white, where a WCAG ratio would pick black.
+    for (const midTone of ["#FF3B30", "#31AAFF", "#F97316", "#22C55E"]) {
+      handle.update({ authorizeUrl: "/a", accent: midTone });
+      expect(button.style.getPropertyValue("--one-connect-accent-fg")).toBe(
+        "#FFFFFF",
+      );
+    }
+    for (const pale of ["#FACC15", "#CCFF00"]) {
+      handle.update({ authorizeUrl: "/a", accent: pale });
+      expect(button.style.getPropertyValue("--one-connect-accent-fg")).toBe(
+        "#0A0C0B",
+      );
+    }
     handle.update({
       authorizeUrl: "/a",
       accent: "#16233F",

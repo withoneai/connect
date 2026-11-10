@@ -182,9 +182,15 @@ function buildStack(props: ConnectButtonProps): HTMLElement | null {
 export const resolveVariant = (props: ConnectButtonProps) =>
   props.variant ?? (props.accent ? "accent" : "default");
 
-/** Dark or white text on a hex fill, whichever reads (WCAG relative
- *  luminance). Null for anything that isn't a hex colour: the stylesheet's
- *  default stands. */
+/** The lowest APCA contrast (Lc) at which white text still reads on the
+ *  button. A fill paler than that gets dark text. */
+const WHITE_TEXT_MIN_LC = 45;
+
+/** White or dark text on a hex fill. White whenever it still reads, as on
+ *  most brand buttons; dark only on fills pale enough to wash it out
+ *  (yellow, lime, pastels). Measured with APCA, because WCAG's ratio puts
+ *  black on mid-tones such as red, orange and blue. Null for anything that
+ *  isn't a hex colour: the stylesheet's default stands. */
 export function readableTextOn(fill: string): string | null {
   const hex = fill.trim().replace(/^#/, "");
   const full =
@@ -195,17 +201,16 @@ export function readableTextOn(fill: string): string | null {
           .join("")
       : hex;
   if (!/^[0-9a-f]{6}$/i.test(full)) return null;
-  const channel = (i: number) => {
-    const v = parseInt(full.slice(i, i + 2), 16) / 255;
-    return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
-  };
+  const channel = (i: number) =>
+    (parseInt(full.slice(i, i + 2), 16) / 255) ** 2.4;
   const luminance =
-    0.2126 * channel(0) + 0.7152 * channel(2) + 0.0722 * channel(4);
-  // Contrast of carbon text on the fill against white text on it
-  // (carbon's own luminance is about 0.0037).
-  const carbonOnFill = (luminance + 0.05) / (0.0037 + 0.05);
-  const whiteOnFill = 1.05 / (luminance + 0.05);
-  return carbonOnFill >= whiteOnFill ? CARBON : WHITE;
+    0.2126729 * channel(0) + 0.7151522 * channel(2) + 0.072175 * channel(4);
+  // APCA (0.0.98G) for white text on the fill: soft-clamp near black, then
+  // the reverse-polarity contrast.
+  const fillY =
+    luminance > 0.022 ? luminance : luminance + (0.022 - luminance) ** 1.414;
+  const whiteLc = (1.14 * (1 - fillY ** 0.65) - 0.027) * 100;
+  return whiteLc >= WHITE_TEXT_MIN_LC ? WHITE : CARBON;
 }
 
 /** Brand colours from props, set on the button through the CSSOM (which
