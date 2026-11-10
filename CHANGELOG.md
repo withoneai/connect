@@ -2,6 +2,11 @@
 
 Every release of `@withone/connect`. Until 1.0, a minor version may remove APIs an earlier minor deprecated; patch versions only fix bugs or docs.
 
+## 0.23.1 · 2026-11-10
+
+### Fixed
+- **White text on brand buttons.** With `accent` and no `accentText`, the button now uses white text unless the colour is too pale for it (yellow, lime, pastels). It used to pick black on mid-tones such as red, orange and blue. The choice is measured with APCA; `accentText` still sets the text yourself.
+
 ## 0.23.0 · 2026-11-09
 
 ### New
