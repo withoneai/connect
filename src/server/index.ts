@@ -29,7 +29,11 @@
  * The Next.js and Node adapters turn the first two into route handlers.
  * See `./key` and `./token` for what each mode stores and sends.
  */
-import { DEFAULT_ONE_API_URL, RETURN_ERROR_PARAM, RETURN_STATUS_PARAM } from "../constants";
+import {
+  DEFAULT_ONE_API_URL,
+  RETURN_ERROR_PARAM,
+  RETURN_STATUS_PARAM,
+} from "../constants";
 import type { Credential, PostToken, TokenResponse } from "./credential";
 import { createKeyCredential } from "./key";
 import {
@@ -61,6 +65,7 @@ import {
   type RefreshIfExpiringOptions,
   type RunActionInput,
   type OneRefusal,
+  type RateLimit,
   type RunActionResult,
   type SearchActionsOptions,
   type StartAuthorizationInput,
@@ -81,12 +86,47 @@ export { refreshTokenExpiresAt, tenancyHeaders, tokenScopes } from "./oauth";
 function oneRefusal(response: Response, data: unknown): OneRefusal | null {
   if (response.ok) return null;
   const fromOne =
-    typeof data === "object" && data !== null && "correlationId" in (data as Record<string, unknown>);
+    typeof data === "object" &&
+    data !== null &&
+    "correlationId" in (data as Record<string, unknown>);
   if (!fromOne) return null;
   if (response.status === 403) return "grant";
   if (response.status === 402) return "plan_limit";
   if (response.status === 429) return "rate_limit";
   return "one_error";
+}
+
+/**
+ * One's rate limit from a reply's headers, or `null` when it sent none of
+ * them. A missing or unreadable header reads `null` on its own and never
+ * throws. One writes "no limit" as the largest 64-bit integer, which
+ * reads as `null` too.
+ */
+function rateLimitFrom(headers: Headers): RateLimit | null {
+  const read = (name: string): number | null => {
+    const value = headers.get(name)?.trim();
+    if (!value) return null;
+    const number = Number(value);
+    return Number.isFinite(number) && number >= 0 ? number : null;
+  };
+  const limit = read("x-ratelimit-limit");
+  const remaining = read("x-ratelimit-remaining");
+  const resetsIn = read("x-ratelimit-reset");
+  const retryAfter = read("retry-after");
+  if (
+    limit === null &&
+    remaining === null &&
+    resetsIn === null &&
+    retryAfter === null
+  )
+    return null;
+  const unlimited = limit !== null && limit > Number.MAX_SAFE_INTEGER;
+  return {
+    limit: unlimited ? null : limit,
+    remaining: unlimited ? null : remaining,
+    resetsIn,
+    retryAfter,
+  };
 }
 
 const CATALOG_PAGE_SIZE = 100;
@@ -128,7 +168,9 @@ export function formEncode(value: unknown): string {
   const walk = (prefix: string, v: unknown) => {
     if (v === undefined || v === null) return;
     if (Array.isArray(v))
-      v.forEach((item, i) => walk(`${prefix}[${typeof item === "object" ? i : ""}]`, item));
+      v.forEach((item, i) =>
+        walk(`${prefix}[${typeof item === "object" ? i : ""}]`, item),
+      );
     else if (typeof v === "object")
       for (const [k, inner] of Object.entries(v as Record<string, unknown>))
         walk(prefix ? `${prefix}[${k}]` : k, inner);
@@ -188,10 +230,16 @@ export interface OneConnectClient {
   ) => Promise<PlatformAction[]>;
   /** An action's guide, input shape, method and path. Read it before
    *  running an action for the first time. */
-  getActionKnowledge: (userId: string, actionId: string) => Promise<ActionKnowledge>;
+  getActionKnowledge: (
+    userId: string,
+    actionId: string,
+  ) => Promise<ActionKnowledge>;
   /** Runs one action through One with the grant: fills the path, encodes
    *  the body, adds what the action needs. */
-  runAction: (userId: string, input: RunActionInput) => Promise<RunActionResult>;
+  runAction: (
+    userId: string,
+    input: RunActionInput,
+  ) => Promise<RunActionResult>;
   /** Any authenticated request to One's /v1 API, headers handled. */
   fetch: (
     userId: string,
@@ -235,9 +283,11 @@ export interface OneConnect extends OneConnectClient {
  * so an app written before key mode existed keeps working untouched.
  */
 function resolveMode(config: OneConnectServerConfig): OneConnectMode {
-  const given = config as Partial<OneConnectKeyConfig> & Partial<OneConnectTokenConfig>;
+  const given = config as Partial<OneConnectKeyConfig> &
+    Partial<OneConnectTokenConfig>;
   const mode: OneConnectMode | undefined =
-    given.mode ?? (given.connectKey ? "key" : given.tokenStore ? "token" : undefined);
+    given.mode ??
+    (given.connectKey ? "key" : given.tokenStore ? "token" : undefined);
   if (mode === undefined) {
     throw new TypeError(
       "createOneConnect needs a credential: pass `connectKey` and `userStore` (key mode, recommended), or `tokenStore` (token mode).",
@@ -258,7 +308,9 @@ function resolveMode(config: OneConnectServerConfig): OneConnectMode {
 }
 
 /** Key mode: a connect key for the app and one permanent id per user. */
-export function createOneConnect(config: OneConnectKeyConfig): OneConnectKeyClient;
+export function createOneConnect(
+  config: OneConnectKeyConfig,
+): OneConnectKeyClient;
 /** Token mode: an access and a refresh token per user, kept fresh. */
 export function createOneConnect(config: OneConnectTokenConfig): OneConnect;
 export function createOneConnect(
@@ -268,7 +320,10 @@ export function createOneConnect(
   config: OneConnectServerConfig,
 ): OneConnectKeyClient | OneConnect {
   const mode = resolveMode(config);
-  const oneApiUrl = (config.oneApiUrl ?? DEFAULT_ONE_API_URL).replace(/\/+$/, "");
+  const oneApiUrl = (config.oneApiUrl ?? DEFAULT_ONE_API_URL).replace(
+    /\/+$/,
+    "",
+  );
   const authorizeUrl = `${oneApiUrl}/oauth/authorize`;
   const tokenUrl = `${oneApiUrl}/oauth/token`;
   const apiUrl = `${oneApiUrl}/v1`;
@@ -330,7 +385,10 @@ export function createOneConnect(
       : null;
   const tokenCredential =
     mode === "token"
-      ? createTokenCredential((config as OneConnectTokenConfig).tokenStore, postToken)
+      ? createTokenCredential(
+          (config as OneConnectTokenConfig).tokenStore,
+          postToken,
+        )
       : null;
   const credential = (keyCredential ?? tokenCredential) as Credential;
 
@@ -352,7 +410,12 @@ export function createOneConnect(
     if (input.loginHint) url.searchParams.set("login_hint", input.loginHint);
     return {
       redirectUrl: url.toString(),
-      cookie: txCookie(state, verifier, config.redirectUri, appPath(input.returnTo)),
+      cookie: txCookie(
+        state,
+        verifier,
+        config.redirectUri,
+        appPath(input.returnTo),
+      ),
     };
   };
 
@@ -387,7 +450,10 @@ export function createOneConnect(
     // The returned state names its own cookie. No cookie means a stale,
     // foreign or forged state; the code is never exchanged in that case.
     if (!code || !state || !verifier)
-      return fail("expired", "The attempt expired, or its state cookie was missing.");
+      return fail(
+        "expired",
+        "The attempt expired, or its state cookie was missing.",
+      );
 
     try {
       const response = await exchange(
@@ -401,7 +467,8 @@ export function createOneConnect(
       // Tokens in token mode, the user's permanent id in key mode.
       await credential.connected(input.userId, response);
     } catch (error) {
-      const status = error instanceof OneConnectError ? error.status : undefined;
+      const status =
+        error instanceof OneConnectError ? error.status : undefined;
       return fail(
         "failed",
         status
@@ -425,7 +492,9 @@ export function createOneConnect(
     init: RequestInit = {},
   ): Promise<Response> => {
     const headers = new Headers(init.headers);
-    for (const [name, value] of Object.entries(await credential.headers(userId)))
+    for (const [name, value] of Object.entries(
+      await credential.headers(userId),
+    ))
       headers.set(name, value);
     return fetch(`${apiUrl}${path.startsWith("/") ? path : `/${path}`}`, {
       ...init,
@@ -438,7 +507,10 @@ export function createOneConnect(
    * that needs nothing but the credential. Throws when the question
    * itself cannot be answered, rather than guessing.
    */
-  const consentStands = async (userId: string, refused: OneConnectError): Promise<boolean> => {
+  const consentStands = async (
+    userId: string,
+    refused: OneConnectError,
+  ): Promise<boolean> => {
     const probe = await oneFetch(userId, "/connections/reachable?limit=1");
     if (probe.ok) return true;
     const verdict = credential.refusal(probe.status, await probe.text());
@@ -465,7 +537,10 @@ export function createOneConnect(
       `/connections/reachable?limit=${limit}&page=${page}`,
     );
     if (!response.ok) {
-      const refused = credential.refusal(response.status, await response.text());
+      const refused = credential.refusal(
+        response.status,
+        await response.text(),
+      );
       if (refused) throw refused;
       throw new OneConnectError(
         "request_failed",
@@ -494,7 +569,10 @@ export function createOneConnect(
       return page.rows ?? [];
     }
     const first = await connectionsPage(userId, CONNECTIONS_PAGE_SIZE, 1);
-    const pages = Math.min(Math.max(first.pages ?? 1, 1), CONNECTIONS_MAX_PAGES);
+    const pages = Math.min(
+      Math.max(first.pages ?? 1, 1),
+      CONNECTIONS_MAX_PAGES,
+    );
     const rest = await Promise.all(
       Array.from({ length: pages - 1 }, (_, index) =>
         connectionsPage(userId, CONNECTIONS_PAGE_SIZE, index + 2),
@@ -558,7 +636,9 @@ export function createOneConnect(
         oneFetch(userId, pageUrl(index + 2))
           .then((response) =>
             response.ok
-              ? (response.json() as Promise<{ rows?: Record<string, unknown>[] }>)
+              ? (response.json() as Promise<{
+                  rows?: Record<string, unknown>[];
+                }>)
               : null,
           )
           .catch(() => null),
@@ -578,32 +658,46 @@ export function createOneConnect(
     const params = new URLSearchParams({
       query,
       limit: String(options.limit ?? SEARCH_DEFAULT_LIMIT),
-      [options.mode === "knowledge" ? "knowledgeAgent" : "executeAgent"]: "true",
+      [options.mode === "knowledge" ? "knowledgeAgent" : "executeAgent"]:
+        "true",
     });
     const response = await oneFetch(
       userId,
       `/available-actions/search/${encodeURIComponent(platform)}?${params}`,
     );
-    if (!response.ok) throw await catalogRefusal(userId, "action search", response);
+    if (!response.ok)
+      throw await catalogRefusal(userId, "action search", response);
     const body = (await response.json()) as
-      | Record<string, unknown>[]
-      | { rows?: Record<string, unknown>[] };
+      Record<string, unknown>[] | { rows?: Record<string, unknown>[] };
     return slim(Array.isArray(body) ? body : (body.rows ?? []));
   };
 
   /** One action's knowledge, cached for the life of the client: an
    *  action's guide does not change between two calls. */
   const knowledgeCache = new Map<string, Promise<ActionKnowledge>>();
-  const getActionKnowledge = (userId: string, actionId: string): Promise<ActionKnowledge> => {
+  const getActionKnowledge = (
+    userId: string,
+    actionId: string,
+  ): Promise<ActionKnowledge> => {
     const cached = knowledgeCache.get(actionId);
     if (cached) return cached;
     const loading = (async () => {
-      const response = await oneFetch(userId, `/knowledge?_id=${encodeURIComponent(actionId)}`);
-      if (!response.ok) throw await catalogRefusal(userId, "action knowledge", response);
-      const body = (await response.json()) as { rows?: Record<string, unknown>[] };
+      const response = await oneFetch(
+        userId,
+        `/knowledge?_id=${encodeURIComponent(actionId)}`,
+      );
+      if (!response.ok)
+        throw await catalogRefusal(userId, "action knowledge", response);
+      const body = (await response.json()) as {
+        rows?: Record<string, unknown>[];
+      };
       const row = body.rows?.[0];
       if (!row)
-        throw new OneConnectError("request_failed", `One has no action with the id ${actionId}.`, 404);
+        throw new OneConnectError(
+          "request_failed",
+          `One has no action with the id ${actionId}.`,
+          404,
+        );
       return toKnowledge(row);
     })();
     knowledgeCache.set(actionId, loading);
@@ -631,7 +725,8 @@ export function createOneConnect(
     const path = fillPath(action.path, input.pathParams);
     const search = new URLSearchParams();
     for (const [key, value] of Object.entries(input.query ?? {}))
-      for (const item of Array.isArray(value) ? value : [value]) search.append(key, item);
+      for (const item of Array.isArray(value) ? value : [value])
+        search.append(key, item);
     const query = search.size ? `?${search}` : "";
 
     const headers: Record<string, string> = {
@@ -656,7 +751,9 @@ export function createOneConnect(
         body = formEncode(payload);
       } else if (encoding === "multipart") {
         const form = new FormData();
-        for (const [key, value] of Object.entries(isPlainObject(payload) ? payload : {}))
+        for (const [key, value] of Object.entries(
+          isPlainObject(payload) ? payload : {},
+        ))
           form.append(
             key,
             value instanceof Blob
@@ -678,6 +775,7 @@ export function createOneConnect(
       body,
     });
     const text = await response.text();
+    const rateLimit = rateLimitFrom(response.headers);
     if (!response.ok) {
       const refused = credential.refusal(response.status, text);
       if (refused?.code === "reconnect_required") {
@@ -686,7 +784,14 @@ export function createOneConnect(
         // tells them apart: if that still answers, the consent stands
         // and it was this call One refused.
         if (await consentStands(userId, refused))
-          return { status: response.status, ok: false, blockedByGrant: true, refusal: "grant", data: text };
+          return {
+            status: response.status,
+            ok: false,
+            blockedByGrant: true,
+            refusal: "grant",
+            rateLimit,
+            data: text,
+          };
         throw refused;
       }
       // One refusing the credential is not an answer to the action.
@@ -699,7 +804,14 @@ export function createOneConnect(
       /* the provider answered with something other than JSON */
     }
     const refusal = oneRefusal(response, data);
-    return { status: response.status, ok: response.ok, blockedByGrant: refusal === "grant", refusal, data };
+    return {
+      status: response.status,
+      ok: response.ok,
+      blockedByGrant: refusal === "grant",
+      refusal,
+      rateLimit,
+      data,
+    };
   };
 
   const shared = {

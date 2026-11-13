@@ -2,6 +2,14 @@
 
 Every release of `@withone/connect`. Until 1.0, a minor version may remove APIs an earlier minor deprecated; patch versions only fix bugs or docs.
 
+## 0.24.0 · 2026-11-13
+
+### New
+- **`runAction` returns the rate limit.** Every result now carries `rateLimit: { limit, remaining, resetsIn, retryAfter }`, read from One's `X-RateLimit-*` and `Retry-After` headers: calls a minute for that user (the app owner's plan sets the size; each user has their own bucket), calls left, seconds until the minute resets, and on a `429` seconds to wait. A value One didn't send is `null`, and `rateLimit` is `null` when it sent none, so nothing breaks on a reply without them. "No limit" reads as `null` too.
+
+### Docs
+- A `402` (`refusal: "plan_limit"`) means the user's calls for the month are used up: back off for the month instead of retrying.
+
 ## 0.23.1 · 2026-11-10
 
 ### Fixed

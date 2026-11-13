@@ -279,8 +279,12 @@ const reply = await oneConnect.runAction(userId, {
   encoding: "json",                           // or "form" / "multipart", as the guide says
   headers: {},                                // only when the guide names one
 });
-// { status, ok, blockedByGrant, refusal, data }
+// { status, ok, blockedByGrant, refusal, rateLimit, data }
 ```
+
+`rateLimit` is `{ limit, remaining, resetsIn, retryAfter }` for that user
+(calls per minute, seconds), or `null` when One sent none. Slow down as
+`remaining` nears 0; on a `429` wait `retryAfter` seconds.
 
 Each connection's `access` is `{ policy: "full" }`, `{ policy: "methods",
 methods }` or `{ policy: "actions", actions }`; plan from it before calling.
@@ -308,9 +312,11 @@ user's id to every call it makes.
 
 - `"grant"` (`403`, `blockedByGrant: true`): outside what the user granted.
   Do not retry it.
-- `"plan_limit"` (`402`): a plan limit, not the grant. Wait and retry later.
-  Do not ask the user to reconnect.
-- `"rate_limit"` (`429`): too many calls. Wait and retry.
+- `"plan_limit"` (`402`): the user's calls for the month are used up, not
+  the grant. Stop calling for this user until next month. Do not ask the
+  user to reconnect.
+- `"rate_limit"` (`429`): too many calls. Wait `rateLimit.retryAfter`
+  seconds and retry.
 - `"one_error"` (other, e.g. `5xx`): retry with a backoff.
 - `null`: not One's refusal; the provider's own answer, or a success.
 
