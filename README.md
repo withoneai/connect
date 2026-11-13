@@ -348,8 +348,10 @@ const reply = await oneConnect.runAction(userId, {
   actionId: action._id,
   body: { limit: 10 },
 });
-// { status, ok, blockedByGrant, refusal, data }
+// { status, ok, blockedByGrant, refusal, rateLimit, data }
 ```
+
+`rateLimit` is One's limit for that user after the call: `{ limit, remaining, resetsIn, retryAfter }`, calls per minute and seconds. The app owner's plan sets the size and each of your users has a bucket of their own. Slow down as `remaining` nears 0, and on a `429` wait `retryAfter` seconds. Any value One didn't send is `null`, `limit` and `remaining` are `null` when nothing limits the user, and `rateLimit` is `null` when One sent none of them. A `402` (`refusal: "plan_limit"`) means the user's calls for the month are used up: stop calling for them until next month rather than retrying.
 
 Each connection carries its `access`: `{ policy: "full" }`, `{ policy: "methods", methods }` or `{ policy: "actions", actions }`. Plan from it before you call.
 

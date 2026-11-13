@@ -33,7 +33,10 @@ function memoryUsers(): OneConnectUserStore & { users: Map<string, string> } {
 }
 
 const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
 
 const INVOICE = {
   _id: "act_invoice",
@@ -65,26 +68,44 @@ const EVENT = {
 
 describe("fillPath and formEncode", () => {
   it("fills placeholders and refuses a missing one", () => {
-    expect(fillPath("/calendars/{{ calendarId }}/events/{{eventId}}", { calendarId: "primary", eventId: "e 1" })).toBe(
-      "/calendars/primary/events/e%201",
+    expect(
+      fillPath("/calendars/{{ calendarId }}/events/{{eventId}}", {
+        calendarId: "primary",
+        eventId: "e 1",
+      }),
+    ).toBe("/calendars/primary/events/e%201");
+    expect(() => fillPath("/calendars/{{calendarId}}", {})).toThrow(
+      /calendarId/,
     );
-    expect(() => fillPath("/calendars/{{calendarId}}", {})).toThrow(/calendarId/);
     expect(fillPath("/plain", undefined)).toBe("/plain");
   });
   it("encodes nested fields the way Stripe reads them", () => {
-    expect(decodeURIComponent(formEncode({ customer: "cus_1", metadata: { a: "1" }, expand: ["x"], items: [{ price: "p" }], skip: undefined }))).toBe(
-      "customer=cus_1&metadata[a]=1&expand[]=x&items[0][price]=p",
-    );
+    expect(
+      decodeURIComponent(
+        formEncode({
+          customer: "cus_1",
+          metadata: { a: "1" },
+          expand: ["x"],
+          items: [{ price: "p" }],
+          skip: undefined,
+        }),
+      ),
+    ).toBe("customer=cus_1&metadata[a]=1&expand[]=x&items[0][price]=p");
   });
 });
 
 describe("search, knowledge, run", () => {
   let users: ReturnType<typeof memoryUsers>;
   const fetchMock = vi.fn<typeof fetch>();
-  const client = () => createOneConnect({ ...app, connectKey: CONNECT_KEY, userStore: users });
+  const client = () =>
+    createOneConnect({ ...app, connectKey: CONNECT_KEY, userStore: users });
   const call = (index: number) => {
     const [url, init] = fetchMock.mock.calls[index]!;
-    return { url: String(url), init: init ?? {}, headers: new Headers(init?.headers) };
+    return {
+      url: String(url),
+      init: init ?? {},
+      headers: new Headers(init?.headers),
+    };
   };
 
   beforeEach(() => {
@@ -96,9 +117,32 @@ describe("search, knowledge, run", () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it("searches a platform's actions with One's search, five by default, ranked for running", async () => {
-    fetchMock.mockResolvedValueOnce(json([{ systemId: "act_invoice", title: "Create Invoice", method: "post", path: "/v1/invoices", tags: ["stripe"], knowledge: "…" }]));
-    const found = await client().searchActions("u1", "stripe", "create an invoice");
-    expect(found).toEqual([{ _id: "act_invoice", title: "Create Invoice", method: "POST", path: "/v1/invoices", tags: ["stripe"] }]);
+    fetchMock.mockResolvedValueOnce(
+      json([
+        {
+          systemId: "act_invoice",
+          title: "Create Invoice",
+          method: "post",
+          path: "/v1/invoices",
+          tags: ["stripe"],
+          knowledge: "…",
+        },
+      ]),
+    );
+    const found = await client().searchActions(
+      "u1",
+      "stripe",
+      "create an invoice",
+    );
+    expect(found).toEqual([
+      {
+        _id: "act_invoice",
+        title: "Create Invoice",
+        method: "POST",
+        path: "/v1/invoices",
+        tags: ["stripe"],
+      },
+    ]);
     const { url, headers } = call(0);
     const parsed = new URL(url);
     expect(parsed.pathname).toBe("/v1/available-actions/search/stripe");
@@ -111,7 +155,10 @@ describe("search, knowledge, run", () => {
 
   it("can search for writing code instead, with its own limit", async () => {
     fetchMock.mockResolvedValueOnce(json({ rows: [] }));
-    await client().searchActions("u1", "gmail", "threads", { limit: 10, mode: "knowledge" });
+    await client().searchActions("u1", "gmail", "threads", {
+      limit: 10,
+      mode: "knowledge",
+    });
     const parsed = new URL(call(0).url);
     expect(parsed.searchParams.get("limit")).toBe("10");
     expect(parsed.searchParams.get("knowledgeAgent")).toBe("true");
@@ -122,9 +169,17 @@ describe("search, knowledge, run", () => {
     fetchMock.mockResolvedValueOnce(json({ rows: [INVOICE] }));
     const oneConnect = client();
     const guide = await oneConnect.getActionKnowledge("u1", "act_invoice");
-    expect(guide).toMatchObject({ _id: "act_invoice", method: "POST", path: "/v1/invoices", tags: ["stripe"], platform: "stripe" });
+    expect(guide).toMatchObject({
+      _id: "act_invoice",
+      method: "POST",
+      path: "/v1/invoices",
+      tags: ["stripe"],
+      platform: "stripe",
+    });
     expect(guide.knowledge).toContain("form-urlencoded");
-    expect(new URL(call(0).url).pathname + new URL(call(0).url).search).toBe("/v1/knowledge?_id=act_invoice");
+    expect(new URL(call(0).url).pathname + new URL(call(0).url).search).toBe(
+      "/v1/knowledge?_id=act_invoice",
+    );
 
     await oneConnect.getActionKnowledge("u1", "act_invoice");
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -133,22 +188,37 @@ describe("search, knowledge, run", () => {
   it("says when an action id is unknown, and does not keep that answer", async () => {
     fetchMock.mockResolvedValueOnce(json({ rows: [] }));
     const oneConnect = client();
-    await expect(oneConnect.getActionKnowledge("u1", "act_nope")).rejects.toMatchObject({ code: "request_failed", status: 404 });
+    await expect(
+      oneConnect.getActionKnowledge("u1", "act_nope"),
+    ).rejects.toMatchObject({ code: "request_failed", status: 404 });
     fetchMock.mockResolvedValueOnce(json({ rows: [EVENT] }));
-    await expect(oneConnect.getActionKnowledge("u1", "act_nope")).resolves.toMatchObject({ _id: "act_event" });
+    await expect(
+      oneConnect.getActionKnowledge("u1", "act_nope"),
+    ).resolves.toMatchObject({ _id: "act_event" });
   });
 
   it("runs an action from its id alone: method and path from the knowledge, placeholders filled", async () => {
-    fetchMock.mockResolvedValueOnce(json({ rows: [EVENT] })).mockResolvedValueOnce(json({ id: "e1" }));
+    fetchMock
+      .mockResolvedValueOnce(json({ rows: [EVENT] }))
+      .mockResolvedValueOnce(json({ id: "e1" }));
     const reply = await client().runAction("u1", {
       connectionKey: "k1",
       actionId: "act_event",
       pathParams: { calendarId: "primary", eventId: "e1" },
       query: { fields: ["id", "summary"], alt: "json" },
     });
-    expect(reply).toEqual({ status: 200, ok: true, blockedByGrant: false, refusal: null, data: { id: "e1" } });
+    expect(reply).toEqual({
+      status: 200,
+      ok: true,
+      blockedByGrant: false,
+      refusal: null,
+      rateLimit: null,
+      data: { id: "e1" },
+    });
     const { url, init, headers } = call(1);
-    expect(url).toBe("https://api.example.test/v1/passthrough/calendars/primary/events/e1?fields=id&fields=summary&alt=json");
+    expect(url).toBe(
+      "https://api.example.test/v1/passthrough/calendars/primary/events/e1?fields=id&fields=summary&alt=json",
+    );
     expect(init.method).toBe("GET");
     expect(init.body).toBeUndefined();
     expect(headers.get("x-one-connection-key")).toBe("k1");
@@ -156,16 +226,27 @@ describe("search, knowledge, run", () => {
   });
 
   it("gives a custom action the connection key in its body, as the CLI does", async () => {
-    fetchMock.mockResolvedValueOnce(json({ rows: [THREADS] })).mockResolvedValueOnce(json({ threads: [] }));
-    await client().runAction("u1", { connectionKey: "k1", actionId: "act_threads", body: { maxResults: 5 } });
+    fetchMock
+      .mockResolvedValueOnce(json({ rows: [THREADS] }))
+      .mockResolvedValueOnce(json({ threads: [] }));
+    await client().runAction("u1", {
+      connectionKey: "k1",
+      actionId: "act_threads",
+      body: { maxResults: 5 },
+    });
     const { init, headers } = call(1);
     expect(init.method).toBe("POST");
     expect(headers.get("content-type")).toBe("application/json");
-    expect(JSON.parse(String(init.body))).toEqual({ maxResults: 5, connectionKey: "k1" });
+    expect(JSON.parse(String(init.body))).toEqual({
+      maxResults: 5,
+      connectionKey: "k1",
+    });
   });
 
   it("encodes a form body and carries the headers an action asks for", async () => {
-    fetchMock.mockResolvedValueOnce(json({ rows: [INVOICE] })).mockResolvedValueOnce(json({ id: "in_1" }));
+    fetchMock
+      .mockResolvedValueOnce(json({ rows: [INVOICE] }))
+      .mockResolvedValueOnce(json({ id: "in_1" }));
     await client().runAction("u1", {
       connectionKey: "k1",
       actionId: "act_invoice",
@@ -174,16 +255,29 @@ describe("search, knowledge, run", () => {
       headers: { "Stripe-Version": "2026-01-01" },
     });
     const { init, headers } = call(1);
-    expect(headers.get("content-type")).toBe("application/x-www-form-urlencoded");
-    expect(decodeURIComponent(String(init.body))).toBe("customer=cus_1&metadata[ref]=42");
+    expect(headers.get("content-type")).toBe(
+      "application/x-www-form-urlencoded",
+    );
+    expect(decodeURIComponent(String(init.body))).toBe(
+      "customer=cus_1&metadata[ref]=42",
+    );
     expect(headers.get("stripe-version")).toBe("2026-01-01");
     // The action headers always win over the caller's.
     expect(headers.get("x-one-action-id")).toBe("act_invoice");
   });
 
   it("sends a multipart body through FormData", async () => {
-    fetchMock.mockResolvedValueOnce(json({ rows: [{ ...INVOICE, _id: "act_upload", path: "/upload" }] })).mockResolvedValueOnce(json({ ok: true }));
-    await client().runAction("u1", { connectionKey: "k1", actionId: "act_upload", body: { purpose: "x", file: new Blob(["hi"]) }, encoding: "multipart" });
+    fetchMock
+      .mockResolvedValueOnce(
+        json({ rows: [{ ...INVOICE, _id: "act_upload", path: "/upload" }] }),
+      )
+      .mockResolvedValueOnce(json({ ok: true }));
+    await client().runAction("u1", {
+      connectionKey: "k1",
+      actionId: "act_upload",
+      body: { purpose: "x", file: new Blob(["hi"]) },
+      encoding: "multipart",
+    });
     const { init, headers } = call(1);
     expect(init.body).toBeInstanceOf(FormData);
     expect((init.body as FormData).get("purpose")).toBe("x");
@@ -192,15 +286,24 @@ describe("search, knowledge, run", () => {
 
   it("still takes method and path from the caller, without reading the knowledge", async () => {
     fetchMock.mockResolvedValueOnce(json({ ok: true }));
-    await client().runAction("u1", { connectionKey: "k1", actionId: "act_x", method: "delete", path: "/things/1" });
+    await client().runAction("u1", {
+      connectionKey: "k1",
+      actionId: "act_x",
+      method: "delete",
+      path: "/things/1",
+    });
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(call(0).init.method).toBe("DELETE");
-    expect(call(0).url).toBe("https://api.example.test/v1/passthrough/things/1");
+    expect(call(0).url).toBe(
+      "https://api.example.test/v1/passthrough/things/1",
+    );
   });
 
   it("refuses to run when a placeholder has no value, before calling One", async () => {
     fetchMock.mockResolvedValueOnce(json({ rows: [EVENT] }));
-    await expect(client().runAction("u1", { connectionKey: "k1", actionId: "act_event" })).rejects.toMatchObject({ code: "request_failed" });
+    await expect(
+      client().runAction("u1", { connectionKey: "k1", actionId: "act_event" }),
+    ).rejects.toMatchObject({ code: "request_failed" });
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

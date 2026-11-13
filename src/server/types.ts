@@ -144,7 +144,8 @@ export interface OneConnectTokenConfig extends OneConnectBaseConfig {
  * mode, a `tokenStore` alone is token mode. Set `mode` to say so
  * explicitly.
  */
-export type OneConnectServerConfig = OneConnectKeyConfig | OneConnectTokenConfig;
+export type OneConnectServerConfig =
+  OneConnectKeyConfig | OneConnectTokenConfig;
 
 /** The transaction cookie the authorize leg sets and the callback reads. */
 export interface OneConnectCookie {
@@ -302,6 +303,22 @@ export interface RunActionInput {
  */
 export type OneRefusal = "grant" | "plan_limit" | "rate_limit" | "one_error";
 
+/**
+ * One's rate limit for the user a call was made for, as One reported it on
+ * that call. The app owner's plan sets the size; each of the app's users
+ * has a bucket of their own. Any value One didn't send is `null`.
+ */
+export interface RateLimit {
+  /** Calls this user may make a minute. `null` when nothing limits them. */
+  limit: number | null;
+  /** Calls left in the current minute. `null` when nothing limits them. */
+  remaining: number | null;
+  /** Seconds until the minute resets. */
+  resetsIn: number | null;
+  /** Seconds to wait before trying again. Set on a 429 only. */
+  retryAfter: number | null;
+}
+
 export interface RunActionResult {
   status: number;
   ok: boolean;
@@ -314,6 +331,11 @@ export interface RunActionResult {
   /** Why One turned the call down, or `null` when it didn't (the call
    *  succeeded, or the provider answered with its own error). */
   refusal: OneRefusal | null;
+  /** One's rate limit for this user after the call, or `null` when One
+   *  sent none of its rate-limit headers. A `refusal` of `"plan_limit"`
+   *  (402) means this user's calls for the month are used up: back off
+   *  for the month, don't retry. */
+  rateLimit: RateLimit | null;
   data: unknown;
 }
 
@@ -329,10 +351,7 @@ export interface RunActionResult {
  *   reached. Nothing stored was changed, so retry later.
  */
 export type OneConnectErrorCode =
-  | "not_connected"
-  | "reconnect_required"
-  | "refresh_failed"
-  | "request_failed";
+  "not_connected" | "reconnect_required" | "refresh_failed" | "request_failed";
 
 export class OneConnectError extends Error {
   readonly code: OneConnectErrorCode;
