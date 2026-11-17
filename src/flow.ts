@@ -54,6 +54,9 @@ function readPageReturn(): OneConnectReturn | null {
  *  replaceState, so scrub now and re-check a few beats later. */
 function scrubAddressBar(): void {
   const scrub = () => {
+    // A late re-check can fire after the page is gone (a test's
+    // environment torn down, a frame removed): nothing to scrub then.
+    if (typeof window === "undefined") return;
     if (!hasReturnParams(window.location.search)) return;
     window.history.replaceState(
       window.history.state,
