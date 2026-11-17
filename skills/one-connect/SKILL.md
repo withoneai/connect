@@ -215,7 +215,7 @@ Optional props: `variant` ("default" | "accent" | "block"), `size` ("sm" |
 "md" | "lg"), `fullWidth`, `theme` ("light" | "dark" | "auto"),
 `connectTheme` ("light" | "dark", One's page), `openApp` (a slug such as
 "gmail": One's page opens that app's connect screen first, then the usual
-list; works for specific apps and for everything), `returnTo` (a path on the app this flow returns to), `label`,
+list; works for specific apps and for everything), `returnTo` (a path on the app this flow returns to, like `/chat/42`; never a full URL), `label`,
 `connectedLabel`, `description`, `disabled`, `onCancel`, `accent` and
 `accentText` (the brand colour and the text on it, e.g. `accent="#F4A938"`;
 `accent` alone switches to the accent variant and picks readable text).
@@ -248,7 +248,11 @@ keep it and wire the flow to it instead of adding a second style:
   row): `useOneConnect({ authorizeUrl, openApp: "gmail", returnTo: "/chat/42" })`.
   One's page still signs the user in and asks for the space, then opens
   Gmail's connect screen instead of the list; the list follows with
-  everything connected. `returnTo` must be a path on the app.
+  everything connected. Pass `returnTo` as a path like `/chat/42`, never a
+  full URL (`http://localhost:3000/chat/42`, `https://yourapp.com/chat/42`): a
+  full URL is ignored and the user lands on the server's `returnTo`. The path
+  is joined to the site of your redirect URI, so the same value works on
+  localhost and in production.
 
 - No SDK in the browser (server-rendered pages): a plain link,
   `<a href="/api/one/authorize">` (add `#one_open_app=gmail` and
