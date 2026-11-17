@@ -57,10 +57,25 @@ export function createTokenCredential(
    *  same refresh token trip One's reuse detection. */
   const refreshing = new Map<string, Promise<OneConnectTokens>>();
 
-  /** Runs `run` under the app's cross-process lock for this user, when
-   *  the store has one. */
-  const locked = <T>(userId: string, run: () => Promise<T>): Promise<T> =>
-    tokenStore.withLock ? tokenStore.withLock(userId, run) : run();
+  /** The last store change queued per user in this process. */
+  const tails = new Map<string, Promise<unknown>>();
+
+  /** Runs `run` after every earlier store change for this user in this
+   *  process, and under the app's cross-process lock when the store has
+   *  one. A refresh, a reconnect's save and a disconnect therefore never
+   *  interleave: a disconnect waits for a refresh in flight and deletes
+   *  what it saved. */
+  const locked = <T>(userId: string, run: () => Promise<T>): Promise<T> => {
+    const held = (): Promise<T> =>
+      tokenStore.withLock ? tokenStore.withLock(userId, run) : run();
+    const next = (tails.get(userId) ?? Promise.resolve()).then(held, held);
+    const tail = next.catch(() => undefined);
+    tails.set(userId, tail);
+    void tail.finally(() => {
+      if (tails.get(userId) === tail) tails.delete(userId);
+    });
+    return next;
+  };
 
   /** Whether either token of the pair stops working within `withinMs`. */
   const expiresWithin = (tokens: OneConnectTokens, withinMs: number): boolean => {
@@ -224,7 +239,9 @@ export function createTokenCredential(
       };
     },
     isConnected: async (userId) => (await tokenStore.loadTokens(userId)) !== null,
-    disconnect: (userId) => tokenStore.clearTokens(userId),
+    // Queued like every other change, so a refresh in flight cannot
+    // save tokens back after the disconnect resolved.
+    disconnect: (userId) => locked(userId, () => tokenStore.clearTokens(userId)),
     // A dead grant surfaces at the refresh, before any call is made.
     refusal: () => null,
     getAccessToken,

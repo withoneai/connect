@@ -106,7 +106,7 @@ describe("createOneConnect", () => {
     const oneConnect = createOneConnect({ ...config, tokenStore: store });
     const result = await oneConnect.completeAuthorization({
       userId: "u1",
-      url: `${config.redirectUri}?error=access_denied&state=s1`,
+      url: `${config.redirectUri}?error=access_denied&state=0123456789abcdef0123456789abcdef`,
       getCookie: () => "verifier",
     });
     expect(result.outcome).toBe("declined");
@@ -116,7 +116,7 @@ describe("createOneConnect", () => {
     expect(back.searchParams.get("one_connect")).toBe("error");
     expect(back.searchParams.get("one_connect_error")).toBe("declined");
     expect(back.searchParams.has("one_connect_message")).toBe(false);
-    expect(result.clearCookieName).toBe("one_tx_s1");
+    expect(result.clearCookieName).toBe("one_tx_0123456789abcdef0123456789abcdef");
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -143,8 +143,8 @@ describe("createOneConnect", () => {
     const oneConnect = createOneConnect({ ...config, returnTo: "/home", tokenStore: store });
     const result = await oneConnect.completeAuthorization({
       userId: "u1",
-      url: `${config.redirectUri}?code=the-code&state=s1`,
-      getCookie: (name) => (name === "one_tx_s1" ? "the-verifier" : undefined),
+      url: `${config.redirectUri}?code=the-code&state=0123456789abcdef0123456789abcdef`,
+      getCookie: (name) => (name === "one_tx_0123456789abcdef0123456789abcdef" ? "the-verifier" : undefined),
     });
     expect(result.outcome).toBe("connected");
     expect(result.redirectUrl).toBe("https://app.example.com/home?one_connect=success");
@@ -243,11 +243,11 @@ describe("createOneConnectRoutes", () => {
     expect(setCookie).toMatch(/^one_tx_[0-9a-f]+=.*; Path=\/api\/one; Max-Age=1800; SameSite=Lax; HttpOnly; Secure$/);
 
     const declined = await GET(
-      new Request("https://app.example.com/api/one/callback?error=access_denied&state=s"),
+      new Request("https://app.example.com/api/one/callback?error=access_denied&state=fedcba9876543210fedcba9876543210"),
     );
     expect(declined.status).toBe(302);
     expect(declined.headers.get("location")).toContain("one_connect=error");
-    expect(declined.headers.get("set-cookie")).toContain("one_tx_s=; Path=/api/one; Max-Age=0");
+    expect(declined.headers.get("set-cookie")).toContain("one_tx_fedcba9876543210fedcba9876543210=; Path=/api/one; Max-Age=0");
 
     const unknown = await GET(new Request("https://app.example.com/api/one/other"));
     expect(unknown.status).toBe(404);
@@ -475,7 +475,7 @@ describe("refresh", () => {
     fetchMock.mockResolvedValueOnce(tokenResponse("at", "rt"));
     const result = await oneConnect.completeAuthorization({
       userId: "u1",
-      url: `${config.redirectUri}?code=c&state=s1`,
+      url: `${config.redirectUri}?code=c&state=0123456789abcdef0123456789abcdef`,
       getCookie: () => "verifier",
     });
     expect(result.outcome).toBe("connected");

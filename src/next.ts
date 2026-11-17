@@ -14,7 +14,12 @@
  * That serves /api/one/authorize and /api/one/callback. Register
  * `https://yourapp.com/api/one/callback` as the app's redirect URI.
  */
-import { RETURN_TO_PARAM } from "./constants";
+import {
+  isState,
+  MAX_PENDING_FLOWS,
+  RETURN_TO_PARAM,
+  TX_COOKIE_PREFIX,
+} from "./constants";
 import type { CompleteAuthorizationResult, OneConnectClient } from "./server";
 
 export interface OneConnectRoutesOptions {
@@ -78,9 +83,33 @@ export function readCookie(request: Request, name: string): string | undefined {
   if (!header) return undefined;
   for (const part of header.split(";")) {
     const [rawName, ...rest] = part.trim().split("=");
-    if (rawName === name) return decodeURIComponent(rest.join("="));
+    if (rawName !== name) continue;
+    try {
+      return decodeURIComponent(rest.join("="));
+    } catch {
+      // A malformed value is no cookie.
+      return undefined;
+    }
   }
   return undefined;
+}
+
+/** The unfinished flows this browser holds, oldest first (browsers send
+ *  older cookies first). Only names this SDK made are listed. */
+export function pendingFlowCookies(request: Request): string[] {
+  const header = request.headers.get("cookie");
+  if (!header) return [];
+  const names: string[] = [];
+  for (const part of header.split(";")) {
+    const name = part.trim().split("=")[0];
+    if (
+      name.startsWith(TX_COOKIE_PREFIX) &&
+      isState(name.slice(TX_COOKIE_PREFIX.length)) &&
+      !names.includes(name)
+    )
+      names.push(name);
+  }
+  return names;
 }
 
 /** The last path segment names the leg: ".../authorize" or ".../callback". */
@@ -115,7 +144,15 @@ export function createOneConnectRoutes(
     const returnTo =
       new URL(request.url).searchParams.get(RETURN_TO_PARAM) ?? undefined;
     const { redirectUrl, cookie } = oneConnect.startAuthorization({ loginHint, returnTo });
+    // Room for this flow: the oldest unfinished ones go, so repeated
+    // starts never pile cookies up until the app refuses the request.
+    const pending = pendingFlowCookies(request);
+    const stale = pending.slice(
+      0,
+      Math.max(0, pending.length - (MAX_PENDING_FLOWS - 1)),
+    );
     return redirectWithCookies(redirectUrl, [
+      ...stale.map((name) => expireCookie(name, cookie.options.path)),
       serializeCookie(cookie.name, cookie.value, cookie.options),
     ]);
   };

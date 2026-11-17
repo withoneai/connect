@@ -2,6 +2,14 @@
 
 Every release of `@withone/connect`. Until 1.0, a minor version may remove APIs an earlier minor deprecated; patch versions only fix bugs or docs.
 
+## 0.24.1 · 2026-11-17
+
+### Security
+- **A malformed request can no longer stop a Node server.** The `@withone/connect/node` handlers answer `400` to a request they cannot read (a broken `Host` or `X-Forwarded-*` header) and `500` when anything later throws. They used to reject, which ends the process on plain `http` and Express 4. A malformed flow cookie, or a `state` this SDK did not make, now reads as an expired attempt.
+- **`returnTo` always stays on your app.** A path with a tab or a newline near the start (`/<tab>/other.site`) passed the check and then resolved to another site. The check now resolves the path the way the callback does and keeps it only when it stays on the app.
+- **`disconnect` waits for a refresh in flight.** A token refresh running at the same moment could save tokens back after `disconnect` resolved, or replace the pair a reconnect just saved. Store changes for one user now run one after another, with or without `withLock`.
+- **Flow cookies are bounded.** A `returnTo` longer than 512 characters is ignored, and a browser keeps at most five unfinished flows; starting another expires the oldest. A crafted page could otherwise fill a user's cookies until the app answered `431`.
+
 ## 0.24.0 · 2026-11-13
 
 ### New
