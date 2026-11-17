@@ -29,3 +29,17 @@ export const CONNECTOR_ASSETS_URL = "https://assets.withone.ai/connectors";
 
 /** One's production API. Point `oneApiUrl` elsewhere for development. */
 export const DEFAULT_ONE_API_URL = "https://api.withone.ai";
+
+/** One cookie per flow, named by its state, so a retry or a second tab
+ *  never overwrites the verifier of a flow still in progress. */
+export const TX_COOKIE_PREFIX = "one_tx_";
+
+/** How many unfinished flows one browser keeps at a time. Older ones
+ *  are expired when a new flow starts. */
+export const MAX_PENDING_FLOWS = 5;
+
+/** A state this SDK made: 32 hex characters. Anything else never names
+ *  a cookie, so a crafted state cannot reach a header. */
+export function isState(value: string | null | undefined): value is string {
+  return typeof value === "string" && /^[0-9a-f]{32}$/.test(value);
+}

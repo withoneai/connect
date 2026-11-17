@@ -323,7 +323,7 @@ One's page still signs the user in and asks for the space. Then, instead of the 
 
 - `openApp` is a slug from One's catalog (`gmail`, `google-calendar`, `stripe`). An app that asks for everything can open any app in the catalog; an app that asks for specific apps can open only one it asks for. A slug outside that, or one the user already connected in that space, is ignored and the page opens on the list.
 - `connector` and `#one_connector` are the old names. They still work.
-- `returnTo` must be a path on your app. Anything else is ignored and the server's `returnTo` applies.
+- `returnTo` must be a path on your app, up to 512 characters. Anything else is ignored and the server's `returnTo` applies.
 - Both work the same on `ConnectButton`, `createConnectFlow` and a plain link: `<a href="/api/one/authorize?one_return_to=%2Fchat%2F42#one_open_app=gmail">`.
 
 ## 5 · Using the grant

@@ -79,9 +79,9 @@ const app = {
 };
 const CONNECT_KEY = "sk_live_connect_key";
 
-const callbackUrl = `${app.redirectUri}?code=c1&state=s1`;
+const callbackUrl = `${app.redirectUri}?code=c1&state=0123456789abcdef0123456789abcdef`;
 const withVerifier = (name: string) =>
-  name === "one_tx_s1" ? "verifier" : undefined;
+  name === "one_tx_0123456789abcdef0123456789abcdef" ? "verifier" : undefined;
 
 describe("choosing a mode", () => {
   it("is key mode when a connect key is configured", () => {

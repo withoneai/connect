@@ -1,10 +1,9 @@
 import { createHash, randomBytes } from "node:crypto";
 
+import { TX_COOKIE_PREFIX } from "../constants";
 import type { OneConnectCookie } from "./types";
 
-/** One cookie per flow, named by its state, so a retry or a second tab
- *  never overwrites the verifier of a flow still in progress. */
-export const TX_COOKIE_PREFIX = "one_tx_";
+export { isState, MAX_PENDING_FLOWS, TX_COOKIE_PREFIX } from "../constants";
 
 /** One gives the consent 10 minutes and then the code 10 minutes, so a
  *  legitimate callback can arrive up to twenty minutes after the start.
@@ -39,13 +38,29 @@ export function txCookieName(state: string): string {
   return `${TX_COOKIE_PREFIX}${state}`;
 }
 
-/** A return path this one flow may use: a path on the app itself. A
- *  full URL, a protocol-relative one or anything else is dropped, so
- *  the callback never sends a user to another site. */
+/** The longest return path a flow keeps. Real ones are a page on the
+ *  app ("/chat/42"); the cap keeps a crafted link from filling the
+ *  browser's cookie jar until the app answers 431. */
+export const MAX_RETURN_PATH_LENGTH = 512;
+
+/** Any origin works: only whether the path leaves it matters. */
+const APP_PATH_BASE = "https://app.invalid";
+
+/** A return path this one flow may use: a path on the app itself. It is
+ *  resolved the way the callback resolves it, so both agree on where it
+ *  goes: a full URL, a protocol-relative one, one that becomes either
+ *  once the URL parser drops a tab or a newline, or anything else is
+ *  dropped, and the callback never sends a user to another site. */
 export function appPath(value: string | undefined): string | undefined {
   if (!value || !value.startsWith("/")) return undefined;
-  if (value.startsWith("//") || value.startsWith("/\\")) return undefined;
-  return value;
+  if (value.length > MAX_RETURN_PATH_LENGTH) return undefined;
+  try {
+    return new URL(value, APP_PATH_BASE).origin === APP_PATH_BASE
+      ? value
+      : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /** The cookie value: the verifier, then the flow's own return path when

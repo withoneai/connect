@@ -43,6 +43,7 @@ import {
   createState,
   pkceChallenge,
   appPath,
+  isState,
   parseTxCookieValue,
   txCookie,
   txCookieName,
@@ -426,7 +427,8 @@ export function createOneConnect(
     const code = params.get("code");
     const state = params.get("state");
     const oauthError = params.get("error");
-    const cookieName = state ? txCookieName(state) : undefined;
+    // Only a state this SDK made names a cookie.
+    const cookieName = isState(state) ? txCookieName(state) : undefined;
     const stored = cookieName ? input.getCookie(cookieName) : undefined;
     const { verifier, returnTo: flowReturnTo } = stored
       ? parseTxCookieValue(stored)

@@ -53,7 +53,11 @@ function toWebRequest(request: IncomingMessage): Request {
   const protocol =
     request.headers["x-forwarded-proto"]?.toString().split(",")[0] ??
     ((request.socket as { encrypted?: boolean }).encrypted ? "https" : "http");
-  const host = request.headers["x-forwarded-host"] ?? request.headers.host ?? "localhost";
+  // The first value of each: a chain of proxies appends its own.
+  const host =
+    request.headers["x-forwarded-host"]?.toString().split(",")[0].trim() ||
+    request.headers.host ||
+    "localhost";
   const headers = new Headers();
   for (const [name, value] of Object.entries(request.headers)) {
     if (typeof value === "string") headers.set(name, value);
@@ -106,9 +110,23 @@ export function createOneConnectHandlers(
     request: IncomingMessage,
     response: ServerResponse,
   ): Promise<void> => {
-    const web = toWebRequest(request);
+    // Nothing may reject out of here: plain `http` and Express 4 ignore
+    // the returned promise, and an unhandled rejection ends the process.
+    let web: Request;
+    try {
+      web = toWebRequest(request);
+    } catch {
+      response.statusCode = 400;
+      response.end("Bad request");
+      return;
+    }
     origin.set(web, request);
-    await send(response, await routes.GET(web));
+    try {
+      await send(response, await routes.GET(web));
+    } catch {
+      if (!response.headersSent) response.statusCode = 500;
+      response.end();
+    }
   };
 
   return { authorize: handle, callback: handle };
