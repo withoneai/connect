@@ -2,6 +2,11 @@
 
 Every release of `@withone/connect`. Until 1.0, a minor version may remove APIs an earlier minor deprecated; patch versions only fix bugs or docs.
 
+## 0.24.2 · 2026-11-17
+
+### Docs
+- **`returnTo` is a path, never a full URL.** The README and the bundled skill now say it outright: pass `/chat/42`, not `http://localhost:3000/chat/42`. A full URL is ignored and the user lands on the server's `returnTo`. The path is joined to the site of your redirect URI, so the same value works on localhost and in production.
+
 ## 0.24.1 · 2026-11-17
 
 ### Security

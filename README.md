@@ -204,7 +204,7 @@ import { ConnectButton } from "@withone/connect/react";
 | `fullWidth` | Fills its container. |
 | `theme` | `light`, `dark` or `auto`. `connectTheme` sets One's page. |
 | `openApp` | An app's slug (`gmail`). One's page opens that app's connect screen first, then the usual list. Works whether your app asks for specific apps or for everything. |
-| `returnTo` | Where this flow returns to: a path on your app, such as `/chat/42`. Overrides the server's `returnTo` for this flow only. |
+| `returnTo` | Where this flow returns to: a path on your app, such as `/chat/42`, never a full URL. Overrides the server's `returnTo` for this flow only. |
 | `label` / `connectedLabel` | Button text, and the text once connected. |
 | `disabled` | Not clickable. |
 | `onSuccess` / `onError` / `onCancel` | How the flow ended. |
@@ -323,7 +323,8 @@ One's page still signs the user in and asks for the space. Then, instead of the 
 
 - `openApp` is a slug from One's catalog (`gmail`, `google-calendar`, `stripe`). An app that asks for everything can open any app in the catalog; an app that asks for specific apps can open only one it asks for. A slug outside that, or one the user already connected in that space, is ignored and the page opens on the list.
 - `connector` and `#one_connector` are the old names. They still work.
-- `returnTo` must be a path on your app, up to 512 characters. Anything else is ignored and the server's `returnTo` applies.
+- Pass `returnTo` as a path like `/chat/42`, never a full URL. A full URL (`http://localhost:3000/chat/42`, `https://yourapp.com/chat/42`) is ignored, and so is a path over 512 characters; the server's `returnTo` applies instead.
+- The path is joined to the site of your redirect URI, so the same value works on localhost and in production.
 - Both work the same on `ConnectButton`, `createConnectFlow` and a plain link: `<a href="/api/one/authorize?one_return_to=%2Fchat%2F42#one_open_app=gmail">`.
 
 ## 5 · Using the grant
