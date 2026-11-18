@@ -2,6 +2,11 @@
 
 Every release of `@withone/connect`. Until 1.0, a minor version may remove APIs an earlier minor deprecated; patch versions only fix bugs or docs.
 
+## 0.24.3 · 2026-11-18
+
+### Docs
+- **A Manage button for each app.** `openApp` on an app the user already connected now opens One's list with that app first and expanded: its accounts, its access, and "Connect another … account". The README and the bundled skill show the pattern: group `listConnections` by `platform`, then one button per app with `openApp`. They no longer say such a slug is ignored.
+
 ## 0.24.2 · 2026-11-17
 
 ### Docs
