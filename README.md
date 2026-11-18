@@ -41,7 +41,7 @@ later:                     oneConnect.runAction(userId, …)  ──►  One, gr
 - [1 · Create your app in One](#1--create-your-app-in-one)
 - [2 · The server client](#2--the-server-client)
 - [3 · The two routes](#3--the-two-routes)
-- [4 · The button](#4--the-button), including [your own button](#your-own-button)
+- [4 · The button](#4--the-button), including [your own button](#your-own-button) and [a Manage button for each app](#a-manage-button-for-each-app)
 - [5 · Using the grant](#5--using-the-grant)
 - [6 · Errors](#6--errors)
 - [7 · Token mode](#7--token-mode)
@@ -319,13 +319,52 @@ const { open } = useOneConnect({
 <button onClick={open}>Connect Gmail</button>
 ```
 
-One's page still signs the user in and asks for the space. Then, instead of the list, it opens Gmail's connect screen straight away. The list follows with everything the user has connected, so they confirm the whole grant as always.
+One's page still signs the user in and asks for the space. What it opens next depends on whether the user already has that app:
 
-- `openApp` is a slug from One's catalog (`gmail`, `google-calendar`, `stripe`). An app that asks for everything can open any app in the catalog; an app that asks for specific apps can open only one it asks for. A slug outside that, or one the user already connected in that space, is ignored and the page opens on the list.
+| The user's app | One's page opens |
+|---|---|
+| Not connected yet | Its connect screen. The list follows with everything the user has connected. |
+| Already connected | The list, with that app first and expanded: each account, its access, and "Connect another … account". |
+
+Either way the user confirms the whole grant as always.
+
+- `openApp` is a slug from One's catalog (`gmail`, `google-calendar`, `stripe`). An app that asks for everything can open any app in the catalog; an app that asks for specific apps can open only one it asks for. A slug outside that is ignored and the page opens on the list.
 - `connector` and `#one_connector` are the old names. They still work.
 - Pass `returnTo` as a path like `/chat/42`, never a full URL. A full URL (`http://localhost:3000/chat/42`, `https://yourapp.com/chat/42`) is ignored, and so is a path over 512 characters; the server's `returnTo` applies instead.
 - The path is joined to the site of your redirect URI, so the same value works on localhost and in production.
 - Both work the same on `ConnectButton`, `createConnectFlow` and a plain link: `<a href="/api/one/authorize?one_return_to=%2Fchat%2F42#one_open_app=gmail">`.
+
+### A Manage button for each app
+
+Your server already knows what the user granted. Show one Manage button per app, each opening One's page on that app, where the user can change its access, add another account of it, or turn it off.
+
+```ts
+// server: one entry per app (listConnections returns one row per account)
+const connections = await oneConnect.listConnections(userId);
+const apps = [...new Map(connections.map((c) => [c.platform, c.title ?? c.platform] as const))];
+```
+
+```tsx
+// client: one button per app
+function ManageApp({ platform, title }: { platform: string; title: string }) {
+  const { open, status } = useOneConnect({
+    authorizeUrl: "/api/one/authorize",
+    openApp: platform,
+    returnTo: "/settings",
+    onSuccess: refetch,
+  });
+  return (
+    <button onClick={open} disabled={status === "connecting"}>
+      Manage {title}
+    </button>
+  );
+}
+```
+
+- When the user finishes, they land back on `returnTo` and `onSuccess` fires. Read `listConnections` again: it shows the new access and any account they added.
+- Nothing to save again: the user's id stays the same. Narrower access applies from the next call.
+- Cancelling on One's page changes nothing.
+- The ready-made `ConnectButton` works too: `openApp={platform}`, `connected` and `connectedLabel="Manage"`.
 
 ## 5 · Using the grant
 

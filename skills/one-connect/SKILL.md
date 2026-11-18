@@ -214,8 +214,9 @@ import { ConnectButton } from "@withone/connect/react";
 Optional props: `variant` ("default" | "accent" | "block"), `size` ("sm" |
 "md" | "lg"), `fullWidth`, `theme` ("light" | "dark" | "auto"),
 `connectTheme` ("light" | "dark", One's page), `openApp` (a slug such as
-"gmail": One's page opens that app's connect screen first, then the usual
-list; works for specific apps and for everything), `returnTo` (a path on the app this flow returns to, like `/chat/42`; never a full URL), `label`,
+"gmail": One's page opens that app's connect screen, or, when the user
+already has it, the list with that app first and expanded; works for
+specific apps and for everything), `returnTo` (a path on the app this flow returns to, like `/chat/42`; never a full URL), `label`,
 `connectedLabel`, `description`, `disabled`, `onCancel`, `accent` and
 `accentText` (the brand colour and the text on it, e.g. `accent="#F4A938"`;
 `accent` alone switches to the accent variant and picks readable text).
@@ -248,11 +249,32 @@ keep it and wire the flow to it instead of adding a second style:
   row): `useOneConnect({ authorizeUrl, openApp: "gmail", returnTo: "/chat/42" })`.
   One's page still signs the user in and asks for the space, then opens
   Gmail's connect screen instead of the list; the list follows with
-  everything connected. Pass `returnTo` as a path like `/chat/42`, never a
+  everything connected. If the user already has Gmail, the list opens
+  with Gmail first and expanded instead. Pass `returnTo` as a path like `/chat/42`, never a
   full URL (`http://localhost:3000/chat/42`, `https://yourapp.com/chat/42`): a
   full URL is ignored and the user lands on the server's `returnTo`. The path
   is joined to the site of your redirect URI, so the same value works on
   localhost and in production.
+
+- A Manage button for each app the user granted (a settings page): the
+  same `openApp`, per app. One's page opens on that app, where the user
+  changes its access, adds another account of it, or turns it off.
+  `listConnections` returns one row per account, so group by `platform`
+  to show one button per app.
+
+  ```tsx
+  // server
+  const connections = await oneConnect.listConnections(userId);
+  const apps = [...new Map(connections.map((c) => [c.platform, c.title ?? c.platform] as const))];
+
+  // client, one per app
+  const { open, status } = useOneConnect({ authorizeUrl: "/api/one/authorize", openApp: platform, returnTo: "/settings", onSuccess: refetch });
+  <Button onClick={open} disabled={status === "connecting"}>Manage {title}</Button>
+  ```
+
+  After the user finishes, read `listConnections` again for the new
+  access and any added account. The user's id stays the same, so there is
+  nothing to save again; cancelling changes nothing.
 
 - No SDK in the browser (server-rendered pages): a plain link,
   `<a href="/api/one/authorize">` (add `#one_open_app=gmail` and
