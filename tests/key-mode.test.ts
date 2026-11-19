@@ -288,6 +288,37 @@ describe("key mode", () => {
     expect(users.users.get("u1")).toBe(CONNECT_USER_ID);
   });
 
+  it("hands each connection's levels through as One sends them", async () => {
+    users.users.set("u1", CONNECT_USER_ID);
+    const access = [
+      { policy: "methods", methods: ["GET"], access: ["read"] },
+      {
+        policy: "actions",
+        actions: [
+          {
+            actionId: "a1",
+            title: "Search messages",
+            method: "POST",
+            access: "read",
+          },
+        ],
+      },
+    ];
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          rows: access.map((a, i) => ({
+            key: `k${i}`,
+            platform: "slack",
+            access: a,
+          })),
+        }),
+      ),
+    );
+    const rows = await client().listConnections("u1");
+    expect(rows.map((r) => r.access)).toEqual(access);
+  });
+
   it("calls One with the connect key and the user's id, and no bearer", async () => {
     users.users.set("u1", CONNECT_USER_ID);
     fetchMock.mockResolvedValueOnce(
