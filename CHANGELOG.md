@@ -2,6 +2,12 @@
 
 Every release of `@withone/connect`. Until 1.0, a minor version may remove APIs an earlier minor deprecated; patch versions only fix bugs or docs.
 
+## 0.25.1 · 2026-11-20
+
+### Fixed
+- **ES module imports work in plain Node.** The ES module builds are now `.mjs` (`dist/server/index.mjs` and so on). They were `.js` in a package without `"type": "module"`, so Node read them as CommonJS: an app that loads the package as an ES module without a bundler (Express with `"type": "module"`, a `.mjs` script) failed with `SyntaxError: Named export … not found` on Node 18, and on Node 22 and 24 printed a `MODULE_TYPELESS_PACKAGE_JSON` warning on every start. Apps built with Next.js, Vite or another bundler, and `require`, are unchanged.
+- The build check now imports every entry by name, as an ES module and through `require`, and fails on that warning.
+
 ## 0.25.0 · 2026-11-20
 
 ### New
