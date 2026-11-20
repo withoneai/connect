@@ -1,6 +1,6 @@
 {
   "name": "@withone/connect",
-  "version": "0.25.0",
+  "version": "0.25.1",
   "description": "One Connect for your app: the button your users press, the two backend routes as one import, and a server client that calls One with the grant. Users keep their connections in One; your app holds only what they granted.",
   "files": [
     "dist",
@@ -10,7 +10,7 @@
     "LICENSE"
   ],
   "main": "dist/index.cjs.js",
-  "module": "dist/index.esm.js",
+  "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
   "devDependencies": {
     "@babel/core": "^7.24.0",
@@ -72,42 +72,42 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.esm.js",
+      "import": "./dist/index.mjs",
       "require": "./dist/index.cjs.js"
     },
     "./react": {
       "types": "./dist/react.d.ts",
-      "import": "./dist/react.esm.js",
+      "import": "./dist/react.mjs",
       "require": "./dist/react.cjs.js"
     },
     "./vue": {
       "types": "./dist/vue.d.ts",
-      "import": "./dist/vue.esm.js",
+      "import": "./dist/vue.mjs",
       "require": "./dist/vue.cjs.js"
     },
     "./svelte": {
       "types": "./dist/svelte.d.ts",
-      "import": "./dist/svelte.esm.js",
+      "import": "./dist/svelte.mjs",
       "require": "./dist/svelte.cjs.js"
     },
     "./server": {
       "types": "./dist/server/index.d.ts",
-      "import": "./dist/server/index.esm.js",
+      "import": "./dist/server/index.mjs",
       "require": "./dist/server/index.cjs.js"
     },
     "./next": {
       "types": "./dist/next.d.ts",
-      "import": "./dist/next.esm.js",
+      "import": "./dist/next.mjs",
       "require": "./dist/next.cjs.js"
     },
     "./node": {
       "types": "./dist/node.d.ts",
-      "import": "./dist/node.esm.js",
+      "import": "./dist/node.mjs",
       "require": "./dist/node.cjs.js"
     },
     "./config": {
       "types": "./dist/config.d.ts",
-      "import": "./dist/config.esm.js",
+      "import": "./dist/config.mjs",
       "require": "./dist/config.cjs.js"
     },
     "./package.json": "./package.json"

@@ -39,7 +39,7 @@ const browserBuild = (name, externals = [], { directive } = {}) => ({
   external: ['@withone/connect', ...externals],
   output: [
     { file: `dist/${name}.cjs.js`, format: 'cjs', exports: 'auto' },
-    { file: `dist/${name}.esm.js`, format: 'es' },
+    { file: `dist/${name}.mjs`, format: 'es' },
   ],
   plugins: [
     typescript(tsOptions),
@@ -62,7 +62,7 @@ const serverBuild = (name, externals = []) => ({
   external: [/^node:/, '@withone/connect/server', '@withone/connect/next', ...externals],
   output: [
     { file: `dist/${name}.cjs.js`, format: 'cjs', exports: 'auto' },
-    { file: `dist/${name}.esm.js`, format: 'es' },
+    { file: `dist/${name}.mjs`, format: 'es' },
   ],
   plugins: [
     typescript(tsOptions),
