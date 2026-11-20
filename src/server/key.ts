@@ -24,8 +24,17 @@ const ORGANIZATION = "org=";
 const PROJECT = "project=";
 const SEPARATOR = ";";
 
+export const SECRET_HEADER = "X-One-Secret";
+export const CONNECT_USER_HEADER = "X-One-Connect-User-Id";
 const ORGANIZATION_HEADER = "X-One-Organization-Id";
 const PROJECT_HEADER = "X-One-Project-Id";
+
+/** What key mode says when One refuses the user or the key. Calls and
+ *  MCP token mints share them. */
+export const RECONNECT_REQUIRED_MESSAGE =
+  "One will not act for this user: their consent was revoked, or the app is deactivated. Ask the user to connect again. If every user fails, check that the connect key is for this environment and that the app is active.";
+export const KEY_NOT_ACCEPTED_MESSAGE =
+  "One did not accept the connect key. Check that it is this app's connect key, minted on the app's page in the One dashboard.";
 
 /**
  * The one value an app stores per user, as a string for one column:
@@ -105,8 +114,8 @@ export function createKeyCredential(
       if (!reference)
         throw new OneConnectError("not_connected", "This user is not connected.");
       const headers: Record<string, string> = {
-        "X-One-Secret": connectKey,
-        "X-One-Connect-User-Id": reference.connectUserId,
+        [SECRET_HEADER]: connectKey,
+        [CONNECT_USER_HEADER]: reference.connectUserId,
       };
       if (reference.organizationId) headers[ORGANIZATION_HEADER] = reference.organizationId;
       if (reference.projectId) headers[PROJECT_HEADER] = reference.projectId;
@@ -123,14 +132,14 @@ export function createKeyCredential(
       if (status === 403 && isBareRefusal(status, body, "Forbidden")) {
         return new OneConnectError(
           "reconnect_required",
-          "One will not act for this user: their consent was revoked, or the app is deactivated. Ask the user to connect again. If every user fails, check that the connect key is for this environment and that the app is active.",
+          RECONNECT_REQUIRED_MESSAGE,
           status,
         );
       }
       if (status === 401 && isBareRefusal(status, body, "Unauthorized")) {
         return new OneConnectError(
           "request_failed",
-          "One did not accept the connect key. Check that it is this app's connect key, minted on the app's page in the One dashboard.",
+          KEY_NOT_ACCEPTED_MESSAGE,
           status,
         );
       }

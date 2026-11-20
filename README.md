@@ -32,6 +32,7 @@ Browser                    Your server                          One
                              saves the grant for the user, redirects home
 onSuccess()      ◄──────
 later:                     oneConnect.runAction(userId, …)  ──►  One, grant enforced
+or, for your own agent:    oneConnect.getMcpToken(userId)   ──►  a bearer for One's MCP server
 ```
 
 ## Contents
@@ -42,7 +43,7 @@ later:                     oneConnect.runAction(userId, …)  ──►  One, gr
 - [2 · The server client](#2--the-server-client)
 - [3 · The two routes](#3--the-two-routes)
 - [4 · The button](#4--the-button), including [your own button](#your-own-button) and [a Manage button for each app](#a-manage-button-for-each-app)
-- [5 · Using the grant](#5--using-the-grant)
+- [5 · Using the grant](#5--using-the-grant), including [your agent on One's MCP server](#your-agent-on-ones-mcp-server)
 - [6 · Errors](#6--errors)
 - [7 · Token mode](#7--token-mode)
 - [Security](#security) · [Troubleshooting](#troubleshooting) · [Supported versions](#supported-versions) · [API reference](#api-reference) · [Support](#support)
@@ -58,7 +59,8 @@ The button, the routes and the calls are the same either way. Only what your ser
 | You also run | Nothing | A daily refresh job |
 | When a user revokes | The next call throws `reconnect_required` | The next refresh throws `refresh_failed` |
 | A call outside the grant | `403` with `blockedByGrant: true` | The same |
-| Pick it when | You are starting out | You need the bearer token itself, or your app already stores tokens |
+| Your agent on One's MCP server | `getMcpToken` mints a 15-minute bearer | `getMcpToken` returns the user's access token |
+| Pick it when | You are starting out | Your app already stores tokens |
 
 The mode is the credential you pass to `createOneConnect`: `connectKey` and `userStore` for key mode, `tokenStore` for token mode. Sections 1 to 6 use key mode; [section 7](#7--token-mode) shows what changes for token mode.
 
@@ -428,6 +430,23 @@ Users who connected with a version before 0.18.0 did not grant this, so the call
 
 You never set an auth header: the client adds the connect key and the user's id to every call it makes.
 
+### Your agent on One's MCP server
+
+If your app runs its own AI agent, it can use the user's grant through One's remote MCP server instead of `runAction`: the agent lists the user's connections, finds actions and runs them itself. Key mode mints the bearer from your connect key; token mode hands over the user's own access token.
+
+```ts
+const { accessToken, url } = await oneConnect.getMcpToken(userId);
+// url is https://mcp.withone.ai/mcp. Give both to your agent's MCP client:
+// Streamable HTTP, with the header  Authorization: Bearer <accessToken>
+```
+
+- The bearer reaches exactly what the user granted, at the same levels. In key mode it lasts 15 minutes with no refresh token: `getMcpToken` keeps it and mints another a minute before it runs out, so call it at the start of each agent run. In token mode it is the user's access token, refreshed first when it is about to expire, and it lasts the app's Token lifetime.
+- One bearer per user. Never hand one user's bearer to another user's agent.
+- Server only. One's MCP server refuses requests from a browser (any request with an `Origin` header), and the bearer acts for the user, so keep it out of pages and logs.
+- When the MCP server answers `401`, the bearer was revoked or ran out: call `getMcpToken(userId, { fresh: true })` and retry once. If the user revoked your app, or the app is paused, that throws `reconnect_required` (key mode) or `refresh_failed` (token mode).
+- The user revoking, pausing the app or, in key mode, deleting the key that minted it ends the bearer on its next call. Its calls count toward your app's limits, like `runAction`.
+- `oneMcpUrl` points it at another environment, like `oneApiUrl`.
+
 ## 6 · Errors
 
 When One itself turns a call down, `runAction` says why in `refusal`:
@@ -508,7 +527,7 @@ The job renews both tokens when either is within 3 days of expiring. Without it,
 ## Security
 
 - **Secrets stay on the server.** The client secret and the connect key live in environment variables, never in browser code, logs, error reports or source control.
-- **A connect key is bound to your app** and does nothing without a user's id. Connect keys work in Production only. Lost or leaked one? Create another on the app's page, move your servers to it, then revoke the old one there.
+- **A connect key is bound to your app** and does nothing without a user's id. Connect keys work in Production only. Lost or leaked one? Create another on the app's page, move your servers to it, then revoke the old one there. Revoking a key also ends every MCP bearer minted from it.
 - **The per-user reference is not a secret.** In token mode the tokens are, so store them encrypted.
 - **The callback is protected for you.** Each attempt carries a fresh `state` and a PKCE verifier in an HttpOnly cookie scoped to your routes; a callback without them is refused as `expired`, and the code is never exchanged.
 - **Failure text is never taken from the URL.** The browser shows fixed text for `declined`, `expired` and `failed`.
@@ -526,6 +545,8 @@ The job renews both tokens when either is within 3 days of expiring. Without it,
 | Every user's calls throw `reconnect_required` | The app is deactivated. Check that it is active in the dashboard. |
 | A call returns `403` with `blockedByGrant: true` | The action is outside what the user granted. Ask for it in your permission set; users see new tools the next time they connect. |
 | A call returns `402` with `refusal: "plan_limit"` | A plan limit was hit, not the grant. Wait and retry later; don't ask the user to reconnect. |
+| Your agent gets `401` from One's MCP server | The bearer was revoked or ran out. Call `getMcpToken(userId, { fresh: true })` and retry once; if that throws, handle its `code` like any call's. |
+| `getMcpToken` throws `reconnect_required` and the message names the connections scope | Your `scopes` option leaves out the connections scopes, so One's MCP server would refuse every tool. Use the default scopes and ask the user to connect again. |
 
 ## Supported versions
 
@@ -555,6 +576,7 @@ The job renews both tokens when either is within 3 days of expiring. Without it,
 | `returnTo` | Where the callback sends the browser afterwards. `/` by default. |
 | `scopes` | OAuth scopes. By default `user:profile:read` (who connected) and the connections scopes of all three spaces (personal, organization, project), so the user may grant from any. |
 | `oneApiUrl` | One's API origin. Production by default. |
+| `oneMcpUrl` | One's MCP server origin, for `getMcpToken`. Production by default. |
 
 | Method | Mode | |
 |---|---|---|
@@ -567,6 +589,7 @@ The job renews both tokens when either is within 3 days of expiring. Without it,
 | `isConnected(userId)` / `disconnect(userId)` | both | Whether something is stored; drop it. |
 | `startAuthorization` / `completeAuthorization` | both | The two legs, for servers that don't use the route adapters. |
 | `getConnectUserId(userId)` | key | The user's One id (`cu_…`), or null. |
+| `getMcpToken(userId, { fresh? })` | both | `{ accessToken, expiresAt, url }`, a bearer for One's MCP server. Key mode: minted for 15 minutes, kept until a minute before it expires. Token mode: the user's access token, refreshed when it is about to expire. `fresh: true` mints or refreshes now. |
 | `getAccessToken` / `getTokens` / `refreshTokens` / `refreshIfExpiring` | token | Tokens, kept fresh. |
 | `mode` | both | `"key"` or `"token"`. |
 
