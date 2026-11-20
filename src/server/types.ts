@@ -237,20 +237,42 @@ export interface ReachableConnection {
   access: ConnectionAccess;
 }
 
+/** What an action does to the user's data. A grant judges every action by
+ *  this, never by its HTTP method: a search sent as a POST is a `read`, and
+ *  a GET that changes something is a `write`. */
+export type ActionAccessLevel = "read" | "write" | "delete";
+
 export type ConnectionAccess =
   | { policy: "full" }
-  | { policy: "methods"; methods: string[] }
+  | {
+      policy: "methods";
+      /** The levels named by their HTTP verbs: GET reads, POST, PUT and
+       *  PATCH write, DELETE deletes. */
+      methods: string[];
+      /** The levels `methods` stand for: an action runs when its own
+       *  `access` is one of them, whatever method it sends. */
+      access?: ActionAccessLevel[];
+    }
   | {
       policy: "actions";
-      actions: { actionId: string; title: string; method: string }[];
+      actions: {
+        actionId: string;
+        title: string;
+        method: string;
+        access?: ActionAccessLevel;
+      }[];
     };
 
 /** One catalog action for a platform. */
 export interface PlatformAction {
   _id: string;
   title: string;
+  /** The HTTP verb the request goes out with. A grant does not judge by it;
+   *  `access` is what decides. */
   method: string;
   path: string;
+  /** What the action does to the user's data, as a grant judges it. */
+  access?: ActionAccessLevel;
   /** One's tags for the action. "custom" marks an action One itself
    *  serves, which takes the connection key in its body. */
   tags?: string[];

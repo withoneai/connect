@@ -153,6 +153,53 @@ describe("search, knowledge, run", () => {
     expect(headers.get("x-one-connect-user-id")).toBe(CONNECT_USER_ID);
   });
 
+  it("carries the level a grant judges each action by, and drops one it does not know", async () => {
+    fetchMock.mockResolvedValueOnce(
+      json([
+        {
+          systemId: "act_search",
+          title: "Search messages",
+          method: "POST",
+          path: "/search.messages",
+          access: "read",
+        },
+        {
+          systemId: "act_delete",
+          title: "Delete a message",
+          method: "POST",
+          path: "/chat.delete",
+          access: "DELETE",
+        },
+        {
+          systemId: "act_old",
+          title: "Old",
+          method: "GET",
+          path: "/old",
+          access: "admin",
+        },
+      ]),
+    );
+    const found = await client().searchActions("u1", "slack", "messages");
+    expect(found.map((a) => [a._id, a.method, a.access])).toEqual([
+      ["act_search", "POST", "read"],
+      ["act_delete", "POST", "delete"],
+      ["act_old", "GET", undefined],
+    ]);
+    expect("access" in found[2]!).toBe(false);
+
+    fetchMock.mockResolvedValueOnce(
+      json({ rows: [{ ...THREADS, access: "read" }], pages: 1 }),
+    );
+    const listed = await client().listActions("u1", "gmail");
+    expect(listed[0]).toMatchObject({ method: "POST", access: "read" });
+
+    fetchMock.mockResolvedValueOnce(
+      json({ rows: [{ ...INVOICE, access: "write" }] }),
+    );
+    const guide = await client().getActionKnowledge("u1", "act_invoice");
+    expect(guide.access).toBe("write");
+  });
+
   it("can search for writing code instead, with its own limit", async () => {
     fetchMock.mockResolvedValueOnce(json({ rows: [] }));
     await client().searchActions("u1", "gmail", "threads", {

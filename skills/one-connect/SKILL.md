@@ -294,7 +294,7 @@ the first time; it names the required fields, the encoding and any header.
 ```ts
 const connections = await oneConnect.listConnections(userId);                 // [{ key, platform, access }]
 const [action] = await oneConnect.searchActions(userId, "stripe", "create an invoice");  // best first, 5 by default
-const guide = await oneConnect.getActionKnowledge(userId, action._id);        // { knowledge (Markdown), ioSchema, method, path, tags }
+const guide = await oneConnect.getActionKnowledge(userId, action._id);        // { knowledge (Markdown), ioSchema, method, path, tags, access }
 
 const reply = await oneConnect.runAction(userId, {
   connectionKey: connection.key,
@@ -313,7 +313,12 @@ const reply = await oneConnect.runAction(userId, {
 `remaining` nears 0; on a `429` wait `retryAfter` seconds.
 
 Each connection's `access` is `{ policy: "full" }`, `{ policy: "methods",
-methods }` or `{ policy: "actions", actions }`; plan from it before calling.
+methods, access }` or `{ policy: "actions", actions }`; plan from it before
+calling. One judges an action by its level, never its HTTP method: every
+action has `access` (`read`, `write` or `delete`), and a `methods` grant
+lists the levels it allows in `access`. `{ methods: ["GET"], access:
+["read"] }` runs a search sent as a POST and refuses a GET that writes, so
+compare the action's `access`, not its `method`.
 `runAction` takes the method and path from the action, fills the path's
 placeholders, puts the connection key in the body of an action One serves
 itself (tag `custom`), and encodes the body as asked. `listActions(userId,

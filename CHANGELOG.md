@@ -2,6 +2,16 @@
 
 Every release of `@withone/connect`. Until 1.0, a minor version may remove APIs an earlier minor deprecated; patch versions only fix bugs or docs.
 
+## 0.27.0 · 2026-11-20
+
+### New
+- **Each action's level.** `searchActions`, `listActions` and `getActionKnowledge` now return `access`: `read`, `write` or `delete`, the level One judges the action by. One sends it; the SDK used to drop it. A search sent as a POST is a `read`.
+- **Each grant's levels.** `ConnectionAccess` types what One already sends: a `methods` grant carries `access` (the levels its methods stand for), and each action of an `actions` grant carries its own `access`.
+- `ActionAccessLevel` is exported from `@withone/connect/server`.
+
+### Docs
+- The README and the bundled skill say how a grant decides: by the action's `access`, never its HTTP method. Compare levels, not methods, when planning a call.
+
 ## 0.26.0 · 2026-11-20
 
 ### Changed

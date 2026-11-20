@@ -55,6 +55,7 @@ import {
 import { createTokenCredential } from "./token";
 import {
   OneConnectError,
+  type ActionAccessLevel,
   type ActionKnowledge,
   type CompleteAuthorizationInput,
   type CompleteAuthorizationResult,
@@ -187,11 +188,20 @@ export function formEncode(value: unknown): string {
   return out.toString();
 }
 
+/** The level One classified an action at, when it sent one it knows. */
+function levelOf(value: unknown): { access?: ActionAccessLevel } {
+  const level = String(value ?? "").toLowerCase();
+  return level === "read" || level === "write" || level === "delete"
+    ? { access: level }
+    : {};
+}
+
 const toKnowledge = (row: Record<string, unknown>): ActionKnowledge => ({
   _id: String(row._id ?? ""),
   title: String(row.title ?? ""),
   method: String(row.method ?? "").toUpperCase(),
   path: String(row.path ?? ""),
+  ...levelOf(row.access),
   tags: Array.isArray(row.tags) ? row.tags.map(String) : [],
   knowledge: String(row.knowledge ?? ""),
   ioSchema: row.ioSchema,
@@ -659,6 +669,7 @@ export function createOneConnect(
       title: String(row.title ?? ""),
       method: String(row.method ?? "").toUpperCase(),
       path: String(row.path ?? ""),
+      ...levelOf(row.access),
       ...(Array.isArray(row.tags) ? { tags: row.tags.map(String) } : {}),
     }));
 

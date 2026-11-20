@@ -395,7 +395,9 @@ const reply = await oneConnect.runAction(userId, {
 
 `rateLimit` is One's limit for that user after the call: `{ limit, remaining, resetsIn, retryAfter }`, calls per minute and seconds. The app owner's plan sets the size and each of your users has a bucket of their own. Slow down as `remaining` nears 0, and on a `429` wait `retryAfter` seconds. Any value One didn't send is `null`, `limit` and `remaining` are `null` when nothing limits the user, and `rateLimit` is `null` when One sent none of them. A `402` (`refusal: "plan_limit"`) means the user's calls for the month are used up: stop calling for them until next month rather than retrying.
 
-Each connection carries its `access`: `{ policy: "full" }`, `{ policy: "methods", methods }` or `{ policy: "actions", actions }`. Plan from it before you call.
+Each connection carries its `access`: `{ policy: "full" }`, `{ policy: "methods", methods, access }` or `{ policy: "actions", actions }`. Plan from it before you call.
+
+One judges every action by what it does to the user's data, never by its HTTP method. Each action has an `access` of `read`, `write` or `delete` (on `searchActions`, `listActions` and `getActionKnowledge`), and a `methods` grant lists the levels it allows in `access`: `{ methods: ["GET"], access: ["read"] }` runs every read, including a search sent as a POST, and refuses a GET that changes something. Compare the action's `access` with the grant's, not its `method`.
 
 `runAction` does what the guide asks for: it fills `{{placeholders}}` in the path from `pathParams`, puts the connection key in the body of an action One serves itself, and sends the body the way the provider reads it.
 
@@ -582,7 +584,7 @@ The job renews both tokens when either is within 3 days of expiring. Without it,
 |---|---|---|
 | `listConnections(userId, { limit?, page? })` | both | The connections the grant reaches, each with its `access`. Every one of them by default; pass `page` (1-based) and `limit` (up to 150) for one page. |
 | `searchActions(userId, platform, query, { limit?, mode? })` | both | Best matches first, 5 by default. `mode` is `"execute"` or `"knowledge"`. |
-| `getActionKnowledge(userId, actionId)` | both | The action's guide, input shape, method and path. |
+| `getActionKnowledge(userId, actionId)` | both | The action's guide, input shape, method, path and `access` level. |
 | `listActions(userId, platform)` | both | Every action of a platform. |
 | `runAction(userId, input)` | both | Runs an action with the grant. |
 | `fetch(userId, path, init?)` | both | Any request to One's `/v1` API, headers handled. |
