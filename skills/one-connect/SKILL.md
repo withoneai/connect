@@ -1,6 +1,6 @@
 ---
 name: one-connect
-description: Add One Connect to an application so its users can grant the app scoped, revocable access to their own One-connected tools (Gmail, Slack, Notion, Stripe and the rest of 1,000+ platforms). Use when wiring @withone/connect into an app - choosing key or token mode, the two backend routes, the Connect button or the app's own button, and calling One with the grant.
+description: Add One Connect to an application so its users can grant the app scoped, revocable access to their own One-connected tools (Gmail, Slack, Notion, Stripe and the rest of 1,000+ platforms). Use when wiring @withone/connect into an app - choosing key or token mode, the two backend routes, the Connect button or the app's own button, and calling One with the grant, or giving the app's own AI agent One's remote MCP server for a connected user.
 ---
 
 # One Connect
@@ -109,7 +109,7 @@ Otherwise they create the app in the One dashboard: Developers -> Connect -> New
 |---|---|
 | `ONE_CLIENT_ID` | From the app. |
 | `ONE_CLIENT_SECRET` | Starts with `one_secret_`. Shown once. |
-| `ONE_CONNECT_KEY` | Key mode. On the app's page: Credentials -> Connect keys -> Create key, with the dashboard on Production. Shown once. |
+| `ONE_CONNECT_KEY` | Key mode. On the app's page: Credentials -> Connect keys -> Create key, with the dashboard on Production. Shown once. Also mints MCP tokens. |
 | Redirect URI | Registered on the app. Must match the callback route exactly, e.g. `http://localhost:3000/api/one/callback`. |
 | `ONE_PERMISSION_SET` | Optional. The app's Permission set ID: the tools and access levels to ask for. Without it, the consent page lists the user's connections and they choose. |
 
@@ -332,6 +332,31 @@ and where to show it is their choice.
 Do not set any auth header. The package adds the connect key and the
 user's id to every call it makes.
 
+**The app's own agent on One's MCP server.** When the app runs its own
+LLM agent, the agent can use the user's grant through One's remote MCP
+server instead of `runAction`: it lists, finds and runs actions itself.
+
+```ts
+const { accessToken, url } = await oneConnect.getMcpToken(userId);
+// the agent's MCP client: Streamable HTTP at `url`,
+// header  Authorization: Bearer <accessToken>
+```
+
+- Call it at the start of each agent run, per user. In key mode the
+  bearer lasts 15 minutes with no refresh token; the package keeps it
+  and mints another a minute before it runs out. In token mode it is the
+  user's access token, refreshed first when it is about to expire.
+- It reaches exactly what the user granted, at the same levels.
+- On the server only. One's MCP server refuses browser requests (any
+  `Origin` header). Never log the bearer, and never give one user's
+  bearer to another user's agent.
+- When the MCP server answers `401`, call
+  `getMcpToken(userId, { fresh: true })` and retry once.
+- Refusals are the codes in section 8: `reconnect_required` (the user
+  revoked, or the app is paused), `request_failed` (the key was not
+  accepted, or One could not mint).
+- `oneMcpUrl` points it at another environment, like `oneApiUrl`.
+
 ## 8 - Errors
 
 `refusal` says why One itself turned a call down:
@@ -393,6 +418,8 @@ Rules:
   secret; log `result.message` from `onComplete` to see why.
 - Do not write OAuth steps or One request headers by hand; use the package.
 - Never show `result.message` or any URL text to users; log it.
+- An MCP bearer belongs to one user and one agent run. Get it from
+  `getMcpToken` on the server; never put it in the browser or a log.
 
 Done when:
 
@@ -405,11 +432,17 @@ Done when:
    `blockedByGrant: true` for one outside it.
 5. After the user revokes the app in their One dashboard, the next call
    fails with `reconnect_required` and the app asks them to connect again.
+6. If the app's agent uses One's MCP server: `getMcpToken` returns a
+   bearer, the agent's `tools/list` at `url` answers, and after the user
+   revokes, `getMcpToken(userId, { fresh: true })` throws
+   `reconnect_required`.
 
 ## 10 - Token mode (only when chosen in section 1)
 
 The app stores an access token and a refresh token per user, as a standard
 OAuth client. No `ONE_CONNECT_KEY` is needed; everything else above holds.
+`getMcpToken` returns the user's access token; after the user revokes,
+`getMcpToken(userId, { fresh: true })` throws `refresh_failed`.
 
 ```ts
 export const oneConnect = createOneConnect({

@@ -84,6 +84,27 @@ export interface OneConnectTokenStore {
   withLock?: <T>(userId: string, run: () => Promise<T>) => Promise<T>;
 }
 
+/**
+ * A short-lived bearer for One's remote MCP server, acting for one user
+ * within their grant. Hand `accessToken` and `url` to the agent's MCP
+ * client on the server; never send them to a browser or a log.
+ */
+export interface OneConnectMcpToken {
+  /** Send as `Authorization: Bearer <accessToken>`. */
+  accessToken: string;
+  /** Epoch milliseconds when the token stops working. */
+  expiresAt: number;
+  /** The MCP endpoint the token works at, e.g. https://mcp.withone.ai/mcp. */
+  url: string;
+}
+
+export interface GetMcpTokenOptions {
+  /** Skip the bearer kept from an earlier call and mint a new one. Pass
+   *  it after One's MCP server answered `401` to the kept one: it was
+   *  revoked, or it ran out. */
+  fresh?: boolean;
+}
+
 export interface RefreshIfExpiringOptions {
   /** Refresh when the access token or the refresh token expires within
    *  this many milliseconds. One minute when omitted. A refresh token
@@ -106,6 +127,9 @@ export interface OneConnectBaseConfig {
   permissionSet?: string;
   /** One's API origin. Production when omitted. */
   oneApiUrl?: string;
+  /** One's MCP server origin, for `getMcpToken`. Production when
+   *  omitted. */
+  oneMcpUrl?: string;
   /** Where the callback sends the browser afterwards. "/" when omitted;
    *  the outcome is appended as `?one_connect=…`. */
   returnTo?: string;

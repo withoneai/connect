@@ -25,17 +25,21 @@
  *   const [action] = await oneConnect.searchActions(userId, "stripe", "create an invoice");
  *   const guide = await oneConnect.getActionKnowledge(userId, action._id);
  *   const reply = await oneConnect.runAction(userId, { connectionKey, actionId: action._id, body });
+ *   // or let the app's own agent use One's MCP server for the user
+ *   const { accessToken, url } = await oneConnect.getMcpToken(userId);
  *
  * The Next.js and Node adapters turn the first two into route handlers.
  * See `./key` and `./token` for what each mode stores and sends.
  */
 import {
   DEFAULT_ONE_API_URL,
+  DEFAULT_ONE_MCP_URL,
   RETURN_ERROR_PARAM,
   RETURN_STATUS_PARAM,
 } from "../constants";
 import type { Credential, PostToken, TokenResponse } from "./credential";
 import { createKeyCredential } from "./key";
+import { createMcpTokens } from "./mcp";
 import {
   DEFAULT_SCOPES,
   basicAuthorization,
@@ -55,7 +59,9 @@ import {
   type CompleteAuthorizationInput,
   type CompleteAuthorizationResult,
   type ConnectFailureCode,
+  type GetMcpTokenOptions,
   type OneConnectKeyConfig,
+  type OneConnectMcpToken,
   type OneConnectMode,
   type OneConnectServerConfig,
   type OneConnectTokenConfig,
@@ -247,6 +253,15 @@ export interface OneConnectClient {
     path: string,
     init?: RequestInit,
   ) => Promise<Response>;
+  /** A bearer for One's remote MCP server, acting for this user within
+   *  their grant, for the app's own agent. Key mode mints one from the
+   *  connect key (it lasts 15 minutes) and reuses it until a minute
+   *  before it expires; pass `{ fresh: true }` after the server answered
+   *  `401`. Token mode returns the user's access token. Server only. */
+  getMcpToken: (
+    userId: string,
+    options?: GetMcpTokenOptions,
+  ) => Promise<OneConnectMcpToken>;
 }
 
 /** The client key mode returns. */
@@ -325,6 +340,10 @@ export function createOneConnect(
     /\/+$/,
     "",
   );
+  const oneMcpUrl = (config.oneMcpUrl ?? DEFAULT_ONE_MCP_URL).replace(
+    /\/+$/,
+    "",
+  );
   const authorizeUrl = `${oneApiUrl}/oauth/authorize`;
   const tokenUrl = `${oneApiUrl}/oauth/token`;
   const apiUrl = `${oneApiUrl}/v1`;
@@ -392,6 +411,29 @@ export function createOneConnect(
         )
       : null;
   const credential = (keyCredential ?? tokenCredential) as Credential;
+
+  // Token mode already holds a bearer One's MCP server takes; `fresh`
+  // refreshes it, so a revoked grant throws `refresh_failed`.
+  const tokenModeMcpToken = async (
+    userId: string,
+    options: GetMcpTokenOptions = {},
+  ): Promise<OneConnectMcpToken> => {
+    const tokens = options.fresh
+      ? await tokenCredential!.refreshTokens(userId)
+      : await tokenCredential!.refreshIfExpiring(userId);
+    return {
+      accessToken: tokens.accessToken,
+      expiresAt: tokens.expiresAt,
+      url: `${oneMcpUrl}/mcp`,
+    };
+  };
+  const getMcpToken = keyCredential
+    ? createMcpTokens(
+        (config as OneConnectKeyConfig).connectKey,
+        keyCredential.getConnectUserId,
+        oneMcpUrl,
+      )
+    : tokenModeMcpToken;
 
   const startAuthorization = (
     input: StartAuthorizationInput = {},
@@ -827,6 +869,7 @@ export function createOneConnect(
     getActionKnowledge,
     runAction,
     fetch: oneFetch,
+    getMcpToken,
   };
 
   if (keyCredential) {

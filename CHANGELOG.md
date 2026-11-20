@@ -2,6 +2,12 @@
 
 Every release of `@withone/connect`. Until 1.0, a minor version may remove APIs an earlier minor deprecated; patch versions only fix bugs or docs.
 
+## 0.25.0 · 2026-11-20
+
+### New
+- **Your agent on One's MCP server.** `oneConnect.getMcpToken(userId)` returns `{ accessToken, expiresAt, url }`: a bearer for One's remote MCP server (`https://mcp.withone.ai/mcp`) that acts for the user within their grant, minted from the connect key. Hand `url` and `Authorization: Bearer <accessToken>` to your agent's MCP client, on your server. The bearer lasts 15 minutes with no refresh token; the client keeps it per user and mints another a minute before it runs out, one mint at a time per user. After the MCP server answers `401`, `getMcpToken(userId, { fresh: true })` mints a new one. The user revoking, the key being deleted or the app being paused ends a bearer on its next call. Refusals are the usual codes: `reconnect_required` when One will not act for the user, `request_failed` when the key is not accepted or One could not mint. A grant replaced mid-mint is retried once. In token mode it returns the user's own access token, refreshed first when it is about to expire; `fresh: true` refreshes it, and a revoked grant throws `refresh_failed`.
+- **`oneMcpUrl`** sets One's MCP server origin, like `oneApiUrl`. Production when omitted.
+
 ## 0.24.3 · 2026-11-18
 
 ### Docs

@@ -30,6 +30,10 @@ export const CONNECTOR_ASSETS_URL = "https://assets.withone.ai/connectors";
 /** One's production API. Point `oneApiUrl` elsewhere for development. */
 export const DEFAULT_ONE_API_URL = "https://api.withone.ai";
 
+/** One's production MCP server. Point `oneMcpUrl` elsewhere for
+ *  development. */
+export const DEFAULT_ONE_MCP_URL = "https://mcp.withone.ai";
+
 /** One cookie per flow, named by its state, so a retry or a second tab
  *  never overwrites the verifier of a flow still in progress. */
 export const TX_COOKIE_PREFIX = "one_tx_";
