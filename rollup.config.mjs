@@ -26,7 +26,7 @@ const nodeBabel = () =>
     babelrc: false,
     configFile: false,
     presets: [
-      ['@babel/preset-env', { targets: { node: '18' } }],
+      ['@babel/preset-env', { targets: { node: '22' } }],
       '@babel/preset-typescript',
     ],
   });

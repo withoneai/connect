@@ -552,7 +552,7 @@ The job renews both tokens when either is within 3 days of expiring. Without it,
 
 | | |
 |---|---|
-| Node.js | 18 or later |
+| Node.js | 22 or later |
 | React | 17 or later (optional peer dependency) |
 | Vue | 3 or later (optional peer dependency) |
 | Svelte | 3 or later (the `use:` action); no peer dependency |

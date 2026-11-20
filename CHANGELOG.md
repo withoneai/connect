@@ -2,6 +2,11 @@
 
 Every release of `@withone/connect`. Until 1.0, a minor version may remove APIs an earlier minor deprecated; patch versions only fix bugs or docs.
 
+## 0.26.0 · 2026-11-20
+
+### Changed
+- **Node 22 or later.** `engines` and the supported versions now say Node 22, like the One CLI, and the server builds target it. Node 18 and 20 are past end of life, and the test toolchain no longer runs on 18. CI runs every change on Node 22 and 24. Browsers are unchanged.
+
 ## 0.25.1 · 2026-11-20
 
 ### Fixed
