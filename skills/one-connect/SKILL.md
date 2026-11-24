@@ -1,6 +1,6 @@
 ---
 name: one-connect
-description: Add One Connect to an application so its users can grant the app scoped, revocable access to their own One-connected tools (Gmail, Slack, Notion, Stripe and the rest of 1,000+ platforms). Use when wiring @withone/connect into an app - choosing key or token mode, the two backend routes, the Connect button or the app's own button, and calling One with the grant, or giving the app's own AI agent One's remote MCP server for a connected user.
+description: Add One Connect to an application so its users can grant the app scoped, revocable access to their own One-connected tools (Gmail, Slack, Notion, Stripe and the rest of 1,000+ platforms). Use when wiring @withone/connect into an app - choosing key or token mode, the two backend routes, the Connect button or the app's own button, and calling One with the grant, or giving the app's own AI agent One's remote MCP server or the One CLI for a connected user.
 ---
 
 # One Connect
@@ -362,6 +362,60 @@ const { accessToken, url } = await oneConnect.getMcpToken(userId);
   accepted, or One could not mint).
 - `oneMcpUrl` points it at another environment, like `oneApiUrl`.
 
+**The app's own agent on the One CLI.** Key mode only. When the app's
+agent calls tools as commands, the app can give it a tool that runs the One
+CLI (`@withone/cli` 2.18.0 or later) as the user: the same `list`,
+`actions find` and `actions execute` a developer uses, held to the user's
+grant.
+
+```ts
+import { execFile } from "node:child_process";
+
+// the only commands the model may run
+const ALLOWED = [["whoami"], ["list"], ["actions", "find"], ["actions", "load"], ["actions", "execute"]];
+const allowed = (args: string[]) =>
+  ALLOWED.some((command) => command.every((word, i) => args[i] === word)) &&
+  !args.some((arg) => arg.startsWith("--output"));
+
+if (!allowed(args)) throw new Error("not an allowed one command");
+// reference: the string saveUser stored for this user, unchanged
+execFile("one", ["--agent", ...args], {
+  env: {
+    PATH: process.env.PATH,
+    ONE_SECRET: process.env.ONE_CONNECT_KEY,  // the connect key
+    ONE_CONNECT_USER_ID: reference,           // the whole string, with any ;org=…;project=…
+    ONE_HOME: `/srv/one/${userId}`,           // a folder per user
+    ONE_NO_AUTO_UPDATE: "1",
+  },
+});
+```
+
+- Let the model run only those commands, never `--output`. `one flow`
+  runs bash and code steps on the server and hands a flow the CLI's
+  environment, connect key included; `--output` writes a file wherever
+  the process can.
+- Pass the stored string whole. The CLI sends the space it names with
+  each call; a bare `cu_…` id lands in the user's personal space.
+- Give the process only these variables, never the app's whole
+  environment or the client secret. `ONE_HOME` keeps each user's CLI
+  state apart and leaves no `~/.one` key to fall back on.
+- `one --agent whoami` names the user; `list` shows only the granted
+  connections and the access on each; `actions find` offers only actions
+  inside the grant. Plan from those two. `actions execute` refuses an
+  action outside the grant with "One refused this for the Connect user"
+  (a `403`): do not retry it. When `list` is refused the same way, the
+  user has no live grant (revoked, or the app is paused): ask them to
+  connect again. Writes need `--confirm-write`.
+- Adding connections and relays need an ordinary key; under a grant the
+  user adds tools through the Connect button.
+- The process holds the connect key, which acts for any of the app's
+  users given their id. The model picks the arguments; the app's code
+  picks the program and its environment. Never put these variables in a
+  shell the model controls. An agent that needs a raw shell should use
+  One's MCP server: its bearer reaches one user for 15 minutes.
+- A connect key without `ONE_CONNECT_USER_ID` is refused, and so is
+  `ONE_CONNECT_USER_ID` beside an ordinary key.
+
 ## 8 - Errors
 
 `refusal` says why One itself turned a call down:
@@ -425,6 +479,9 @@ Rules:
 - Never show `result.message` or any URL text to users; log it.
 - An MCP bearer belongs to one user and one agent run. Get it from
   `getMcpToken` on the server; never put it in the browser or a log.
+- A CLI run gets one user's `ONE_CONNECT_USER_ID` and `ONE_HOME`, only
+  the variables it needs, and only `whoami`, `list` and `actions`
+  commands from the model.
 
 Done when:
 
@@ -441,6 +498,10 @@ Done when:
    bearer, the agent's `tools/list` at `url` answers, and after the user
    revokes, `getMcpToken(userId, { fresh: true })` throws
    `reconnect_required`.
+7. If the app's agent uses the One CLI: with the variables above,
+   `one --agent whoami` names the user, `one --agent list` shows only the
+   granted connections, and `actions execute` refuses an action outside
+   the grant.
 
 ## 10 - Token mode (only when chosen in section 1)
 

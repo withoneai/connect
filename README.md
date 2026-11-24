@@ -33,6 +33,7 @@ Browser                    Your server                          One
 onSuccess()      ◄──────
 later:                     oneConnect.runAction(userId, …)  ──►  One, grant enforced
 or, for your own agent:    oneConnect.getMcpToken(userId)   ──►  a bearer for One's MCP server
+                           or the One CLI with your connect key and the user's id
 ```
 
 ## Contents
@@ -43,7 +44,7 @@ or, for your own agent:    oneConnect.getMcpToken(userId)   ──►  a bearer 
 - [2 · The server client](#2--the-server-client)
 - [3 · The two routes](#3--the-two-routes)
 - [4 · The button](#4--the-button), including [your own button](#your-own-button) and [a Manage button for each app](#a-manage-button-for-each-app)
-- [5 · Using the grant](#5--using-the-grant), including [your agent on One's MCP server](#your-agent-on-ones-mcp-server)
+- [5 · Using the grant](#5--using-the-grant), including [your agent on One's MCP server](#your-agent-on-ones-mcp-server) and [on the One CLI](#your-agent-on-the-one-cli)
 - [6 · Errors](#6--errors)
 - [7 · Token mode](#7--token-mode)
 - [Security](#security) · [Troubleshooting](#troubleshooting) · [Supported versions](#supported-versions) · [API reference](#api-reference) · [Support](#support)
@@ -60,6 +61,7 @@ The button, the routes and the calls are the same either way. Only what your ser
 | When a user revokes | The next call throws `reconnect_required` | The next refresh throws `refresh_failed` |
 | A call outside the grant | `403` with `blockedByGrant: true` | The same |
 | Your agent on One's MCP server | `getMcpToken` mints a 15-minute bearer | `getMcpToken` returns the user's access token |
+| Your agent on the One CLI | `ONE_SECRET` and `ONE_CONNECT_USER_ID` | Not available |
 | Pick it when | You are starting out | Your app already stores tokens |
 
 The mode is the credential you pass to `createOneConnect`: `connectKey` and `userStore` for key mode, `tokenStore` for token mode. Sections 1 to 6 use key mode; [section 7](#7--token-mode) shows what changes for token mode.
@@ -448,6 +450,39 @@ const { accessToken, url } = await oneConnect.getMcpToken(userId);
 - When the MCP server answers `401`, the bearer was revoked or ran out: call `getMcpToken(userId, { fresh: true })` and retry once. If the user revoked your app, or the app is paused, that throws `reconnect_required` (key mode) or `refresh_failed` (token mode).
 - The user revoking, pausing the app or, in key mode, deleting the key that minted it ends the bearer on its next call. Its calls count toward your app's limits, like `runAction`.
 - `oneMcpUrl` points it at another environment, like `oneApiUrl`.
+
+### Your agent on the One CLI
+
+Key mode only. If your agent calls tools as commands, give it a tool that runs the [One CLI](https://www.npmjs.com/package/@withone/cli) (2.18.0 or later) as the user: the same `list`, `actions find` and `actions execute` a developer uses, held to the user's grant. Set two variables for each run: `ONE_SECRET` to your connect key and `ONE_CONNECT_USER_ID` to the string your `userStore` saved for the user.
+
+```ts
+import { execFile } from "node:child_process";
+
+// the only commands the model may run
+const ALLOWED = [["whoami"], ["list"], ["actions", "find"], ["actions", "load"], ["actions", "execute"]];
+const allowed = (args: string[]) =>
+  ALLOWED.some((command) => command.every((word, i) => args[i] === word)) &&
+  !args.some((arg) => arg.startsWith("--output"));
+
+if (!allowed(args)) throw new Error("not an allowed one command");
+// reference: the string saveUser stored for this user, unchanged
+execFile("one", ["--agent", ...args], {
+  env: {
+    PATH: process.env.PATH,
+    ONE_SECRET: process.env.ONE_CONNECT_KEY,
+    ONE_CONNECT_USER_ID: reference,   // the whole string, with any ;org=…;project=…
+    ONE_HOME: `/srv/one/${userId}`,   // a folder per user
+    ONE_NO_AUTO_UPDATE: "1",
+  },
+});
+```
+
+- Let the model run only those commands, never `--output`. `one flow` runs bash and code steps on your server and hands a flow the CLI's environment, connect key included; `--output` writes a file wherever the process can.
+- Pass the stored string whole. The CLI sends the space it names with each call; a bare `cu_…` id lands in the user's personal space.
+- `one --agent whoami` names the user, `list` shows only the granted connections and the access on each, and `actions find` offers only actions inside the grant. `actions execute` refuses an action outside it with a `403`. When `list` is refused the same way, the user has no live grant (they revoked, or the app is paused): ask them to connect again.
+- Give the process only these variables, never your whole environment or the client secret. A folder per user in `ONE_HOME` keeps each user's CLI state apart and leaves no `~/.one` key to fall back on.
+- The process holds your connect key, which acts for any of your users given their id. The model picks the arguments; your code picks the program and its environment. Never put these variables in a shell the model controls. An agent that needs a raw shell should use One's MCP server: its bearer reaches one user for 15 minutes.
+- Adding connections and relays need an ordinary key. A connect key without `ONE_CONNECT_USER_ID` is refused, and so is `ONE_CONNECT_USER_ID` beside an ordinary key.
 
 ## 6 · Errors
 
