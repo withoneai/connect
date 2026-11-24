@@ -2,6 +2,11 @@
 
 Every release of `@withone/connect`. Until 1.0, a minor version may remove APIs an earlier minor deprecated; patch versions only fix bugs or docs.
 
+## 0.27.1 · 2026-11-24
+
+### Docs
+- **Your agent on the One CLI.** The README and the bundled skill show how an app's own agent runs the One CLI (2.18.0 or later) as a connected user, in key mode: `ONE_SECRET` set to the connect key and `ONE_CONNECT_USER_ID` to the string the `userStore` saved, with a folder per user in `ONE_HOME`. `list` and `actions find` show only what the grant reaches, and `actions execute` refuses the rest. The process holds the connect key, so the model gets a tool that runs only `whoami`, `list` and `actions` commands, never a shell holding the key or `one flow`, whose bash and code steps run on the server; an agent that needs a raw shell should use One's MCP server.
+
 ## 0.27.0 · 2026-11-20
 
 ### New
