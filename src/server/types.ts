@@ -369,10 +369,9 @@ export interface RunActionResult {
   status: number;
   ok: boolean;
   /** True only when One refused the call because it is outside the grant
-   *  (a 403). The provider was never called. Do not retry. Key mode sets
-   *  it; in token mode it stays false today, so treat any 403 there as
-   *  refused. One's other refusals (plan limit, rate limit, its own
-   *  errors) are not about the grant: see `refusal`. */
+   *  (a 403). The provider was never called. Do not retry. The same in
+   *  key mode and token mode. One's other refusals (plan limit, rate
+   *  limit, its own errors) are not about the grant: see `refusal`. */
   blockedByGrant: boolean;
   /** Why One turned the call down, or `null` when it didn't (the call
    *  succeeded, or the provider answered with its own error). */

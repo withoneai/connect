@@ -214,6 +214,89 @@ describe("createOneConnect", () => {
     expect(init?.method).toBe("POST");
   });
 
+  describe("a call One refuses with a bare 403, in token mode", () => {
+    const action = {
+      connectionKey: "live::stripe::default::k",
+      actionId: "conn_mod_def::charges",
+      method: "get",
+      path: "/v1/charges",
+    } as const;
+    const bare403 = () => new Response("403 Forbidden", { status: 403 });
+    const live = () =>
+      store.tokens.set("u1", {
+        accessToken: "at",
+        refreshToken: "rt",
+        expiresAt: Date.now() + 1e6,
+      });
+
+    it("reads it as the grant when the user's grant still stands, as key mode does", async () => {
+      live();
+      fetchMock
+        .mockResolvedValueOnce(bare403())
+        .mockResolvedValueOnce(new Response(JSON.stringify({ rows: [] })));
+      const oneConnect = createOneConnect({ ...config, tokenStore: store });
+      const result = await oneConnect.runAction("u1", action);
+      expect(result).toEqual({
+        status: 403,
+        ok: false,
+        blockedByGrant: true,
+        refusal: "grant",
+        rateLimit: null,
+        data: "403 Forbidden",
+      });
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(fetchMock.mock.calls[1][0]).toBe(
+        "https://api.example.test/v1/connections/reachable?limit=1",
+      );
+      expect(store.tokens.has("u1")).toBe(true);
+    });
+
+    it("leaves the provider's own 403 alone: it carries a body", async () => {
+      live();
+      fetchMock.mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ message: "Resource not accessible by integration" }),
+          {
+            status: 403,
+          },
+        ),
+      );
+      const oneConnect = createOneConnect({ ...config, tokenStore: store });
+      const result = await oneConnect.runAction("u1", action);
+      expect(result.blockedByGrant).toBe(false);
+      expect(result.refusal).toBeNull();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("throws refresh_failed when the grant itself is gone", async () => {
+      live();
+      fetchMock
+        .mockResolvedValueOnce(bare403())
+        .mockResolvedValueOnce(
+          new Response("401 Unauthorized", { status: 401 }),
+        )
+        .mockResolvedValueOnce(invalidGrant());
+      const oneConnect = createOneConnect({ ...config, tokenStore: store });
+      await expect(oneConnect.runAction("u1", action)).rejects.toMatchObject({
+        code: "refresh_failed",
+      } satisfies Partial<OneConnectError>);
+      expect(store.tokens.has("u1")).toBe(false);
+    });
+
+    it("does not guess when One cannot say whether the grant stands", async () => {
+      live();
+      fetchMock
+        .mockResolvedValueOnce(bare403())
+        .mockResolvedValueOnce(new Response("upstream", { status: 503 }));
+      const oneConnect = createOneConnect({ ...config, tokenStore: store });
+      await expect(oneConnect.runAction("u1", action)).rejects.toMatchObject({
+        code: "request_failed",
+        status: 503,
+      });
+      expect(store.tokens.has("u1")).toBe(true);
+    });
+  });
+
   it("throws not_connected for a user with no tokens", async () => {
     const oneConnect = createOneConnect({ ...config, tokenStore: store });
     await expect(oneConnect.listConnections("nobody")).rejects.toMatchObject({

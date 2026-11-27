@@ -2,6 +2,11 @@
 
 Every release of `@withone/connect`. Until 1.0, a minor version may remove APIs an earlier minor deprecated; patch versions only fix bugs or docs.
 
+## 0.27.2 · 2026-11-27
+
+### Fixed
+- **A call outside the grant reads the same in token mode.** `runAction` returned `blockedByGrant: false` and `refusal: null` in token mode for a call One refused because it is outside the grant, so the app could not tell it from the provider's own `403`. One answers that call with a bare `403 Forbidden` in both modes. Token mode now asks One whether the user's grant still stands, as key mode does: if it does, the result is `blockedByGrant: true`, `refusal: "grant"`. If One refuses the token there too, the SDK refreshes it, which throws `refresh_failed` (and clears the tokens) when the grant is gone. A provider's own `403` carries a body and is unchanged.
+
 ## 0.27.1 · 2026-11-24
 
 ### Docs
