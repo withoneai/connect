@@ -2,6 +2,11 @@
 
 Every release of `@withone/connect`. From 1.0, the package follows semantic versioning: a breaking change ships only in a major version. Before 1.0, a minor version could remove APIs an earlier minor had deprecated.
 
+## 1.0.1 · 2026-11-27
+
+### Docs
+- **The npm listing.** The package description now matches the repository's, and the keywords grow from four to sixteen: `oauth2`, `authentication`, `ai-agents`, `agent-skills`, `sdk`, `typescript`, `react`, `nextjs`, `vue`, `svelte`, `express` and `one` join `oauth`, `integrations`, `agents` and `withone`. No code change.
+
 ## 1.0.0 · 2026-11-27
 
 The first stable release. The API is the one 0.27.2 shipped: nothing is removed or renamed, and an app on 0.27 upgrades without a code change.

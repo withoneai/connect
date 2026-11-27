@@ -1,7 +1,7 @@
 {
   "name": "@withone/connect",
-  "version": "1.0.0",
-  "description": "One Connect for your app: the button your users press, the two backend routes as one import, and a server client that calls One with the grant. Users keep their connections in One; your app holds only what they granted.",
+  "version": "1.0.1",
+  "description": "Enterprise auth for every user, for free. Embeddable authentication that lets your users connect their own apps to your product, with scoped access they can revoke.",
   "files": [
     "dist",
     "src",
@@ -63,10 +63,22 @@
     "email": "support@withone.ai"
   },
   "keywords": [
-    "withone",
     "oauth",
+    "oauth2",
+    "authentication",
     "integrations",
-    "agents"
+    "ai-agents",
+    "agents",
+    "agent-skills",
+    "sdk",
+    "typescript",
+    "react",
+    "nextjs",
+    "vue",
+    "svelte",
+    "express",
+    "withone",
+    "one"
   ],
   "license": "MIT",
   "homepage": "https://withone.ai",
