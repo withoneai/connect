@@ -1,6 +1,22 @@
 # Changelog
 
-Every release of `@withone/connect`. Until 1.0, a minor version may remove APIs an earlier minor deprecated; patch versions only fix bugs or docs.
+Every release of `@withone/connect`. From 1.0, the package follows semantic versioning: a breaking change ships only in a major version. Before 1.0, a minor version could remove APIs an earlier minor had deprecated.
+
+## 1.0.0 · 2026-11-27
+
+The first stable release. The API is the one 0.27.2 shipped: nothing is removed or renamed, and an app on 0.27 upgrades without a code change.
+
+### Changed
+- **MIT license.** `@withone/connect` is released under the MIT license from this version. The 0.x versions already published stay under GPL-3.0.
+- **Semantic versioning.** From 1.0, a breaking change ships only in a major version. A deprecation is marked in the types and listed here before it is removed. The deprecated `connector` option (renamed `openApp`) still works in 1.x.
+
+### Fixed
+- **What a `402` means.** The types said a `refusal` of `"plan_limit"` means the user's calls for the month are used up. One counts the monthly limit against the app's plan, across all of its users; what it counts per user is the rate limit (`429`). The comments on `OneRefusal` and `RunActionResult`, the README and the bundled skill now say so: stop calling rather than retrying, and an upgrade or the next billing period lifts it. The SDK's behavior is unchanged.
+
+### Docs
+- **A shorter README.** It opens with the agent route (`npx skills add withoneai/connect`, then ask the agent to add One Connect), followed by the five steps by hand, what your users see and what you can build. The full reference lives at [withone.ai/docs/connect](https://withone.ai/docs/connect).
+- **The bundled skill.** A new first section covers setup: Node 22, installing and signing in to the One CLI, and the prompt the One dashboard gives for an app that already exists. The less common cases moved to five reference files beside `SKILL.md` (`routes`, `button`, `agent-tools`, `token-mode`, `troubleshooting`). Fixed: custom action names appeared before the step that supplies them, the plain link listed its parts in the wrong order, and the CLI route did not say where the user's stored string comes from.
+- **Contacts.** Security reports go to security@withone.ai, as `SECURITY.md` now says. Everything else goes to support@withone.ai.
 
 ## 0.27.2 · 2026-11-27
 

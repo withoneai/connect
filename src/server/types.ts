@@ -341,8 +341,11 @@ export interface RunActionInput {
  * (Gmail's 404, Stripe's 400) is not One's refusal and reads `null`.
  *
  * - `grant`: the call is outside what the user granted (403). Do not retry.
- * - `plan_limit`: a plan limit was hit (402, "Please try again later or
- *   upgrade your plan"). Not about the grant: wait and retry later.
+ * - `plan_limit`: your One plan is at its monthly limit (402, "Please try
+ *   again later or upgrade your plan"). The limit is counted across all of
+ *   your app's users, so it is not about the grant or this user. Stop
+ *   calling rather than retrying: an upgrade or the next billing period
+ *   lifts it.
  * - `rate_limit`: too many calls (429). Wait and retry later.
  * - `one_error`: any other error from One (for example a 5xx). Retry with
  *   a backoff.
@@ -377,9 +380,10 @@ export interface RunActionResult {
    *  succeeded, or the provider answered with its own error). */
   refusal: OneRefusal | null;
   /** One's rate limit for this user after the call, or `null` when One
-   *  sent none of its rate-limit headers. A `refusal` of `"plan_limit"`
-   *  (402) means this user's calls for the month are used up: back off
-   *  for the month, don't retry. */
+   *  sent none of its rate-limit headers. The rate limit is per user. A
+   *  `refusal` of `"plan_limit"` (402) is not: it means your One plan is
+   *  at its monthly limit, counted across all of your app's users. Stop
+   *  calling rather than retrying. */
   rateLimit: RateLimit | null;
   data: unknown;
 }
