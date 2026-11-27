@@ -4,7 +4,7 @@
 
 Please report security issues privately. Do not open a public GitHub issue.
 
-Email **hello@withone.ai** with the subject `Security: @withone/connect`, and include:
+Email **security@withone.ai** with the subject `Security: @withone/connect`, and include:
 
 - the version of `@withone/connect`, and the entry point involved (`/server`, `/next`, `/node`, `/react`, `/vue`, `/svelte` or the browser bundle)
 - what an attacker can do, and the steps to reproduce it
