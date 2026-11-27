@@ -105,6 +105,14 @@ function oneRefusal(response: Response, data: unknown): OneRefusal | null {
 }
 
 /**
+ * One's refusal of a call it will not let through: the bare status line
+ * and nothing else. A provider's own 403 carries its own body.
+ */
+function isBareForbidden(status: number, body: string): boolean {
+  return status === 403 && body.trim() === "403 Forbidden";
+}
+
+/**
  * One's rate limit from a reply's headers, or `null` when it sent none of
  * them. A missing or unreadable header reads `null` on its own and never
  * throws. One writes "no limit" as the largest 64-bit integer, which
@@ -579,6 +587,29 @@ export function createOneConnect(
     );
   };
 
+  /**
+   * Token mode's answer to the same question, after One refused a call
+   * with a bare 403. If the route that needs nothing but the token still
+   * answers, the grant stands and it was the call One refused. If One
+   * refuses the token there too, the grant may be gone: a refresh settles
+   * it, and throws `refresh_failed` (clearing the tokens) when it is.
+   * Throws rather than guesses when One cannot say.
+   */
+  const tokenGrantStands = async (userId: string): Promise<boolean> => {
+    const reachable = "/connections/reachable?limit=1";
+    let probe = await oneFetch(userId, reachable);
+    if (!probe.ok && (probe.status === 401 || probe.status === 403)) {
+      await tokenCredential!.refreshTokens(userId);
+      probe = await oneFetch(userId, reachable);
+    }
+    if (probe.ok) return true;
+    throw new OneConnectError(
+      "request_failed",
+      `One could not confirm the user's grant (HTTP ${probe.status}). Try again.`,
+      probe.status,
+    );
+  };
+
   type ConnectionsPage = { rows?: ReachableConnection[]; pages?: number };
 
   const connectionsPage = async (
@@ -851,6 +882,20 @@ export function createOneConnect(
       }
       // One refusing the credential is not an answer to the action.
       if (refused) throw refused;
+      // Token mode gets the same bare 403 for a call outside the grant,
+      // but the token reads it as nothing (a dead grant surfaces at the
+      // refresh), so it is told apart here the same way.
+      if (tokenCredential && isBareForbidden(response.status, text)) {
+        if (await tokenGrantStands(userId))
+          return {
+            status: response.status,
+            ok: false,
+            blockedByGrant: true,
+            refusal: "grant",
+            rateLimit,
+            data: text,
+          };
+      }
     }
     let data: unknown = text;
     try {
